@@ -3,7 +3,7 @@
 A RESTful blog API built with **ASP.NET Core (.NET 10)** following **Clean Architecture** principles. Features CQRS via MediatR, ASP.NET Core Identity, Entity Framework Core with PostgreSQL, a generic repository pattern, audit interceptors, and a FluentValidation pipeline.
 
 ---
-
+note: move to the `auth_2` design instead of extending this branch, this branch is now functionally correct but has some design issues that `auth_2` fixes. See [Authentication (JWT)](#authentication-jwt) for details.
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
@@ -11,6 +11,7 @@ A RESTful blog API built with **ASP.NET Core (.NET 10)** following **Clean Archi
 - [Tech Stack](#tech-stack)
 - [Domain Entities](#domain-entities)
 - [Features & Endpoints](#features--endpoints)
+- [Authentication (JWT)](#authentication-jwt)
 - [Key Design Decisions](#key-design-decisions)
 - [Getting Started](#getting-started)
 - [Configuration](#configuration)
@@ -266,45 +267,113 @@ All domain entities inherit from `BaseEntity` which provides `Id` (Guid), `Creat
 
 ### Users
 
-| Method | Route | Description |
-|---|---|---|
-| POST | `/users/register` | Register a new user |
-| GET | `/users` | Get all users |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| POST | `/users/register` | Register a new user | No |
+| POST | `/users/login` | Log in, receive a JWT | No |
+| GET | `/users` | Get all users | **Yes** |
 
 ### Blogs
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/blogs` | Get all blogs with category |
-| GET | `/blogs/{id}` | Get blog by ID |
-| GET | `/blogs/category/{categoryId}` | Get blogs filtered by category |
-| POST | `/blogs` | Create a blog |
-| PUT | `/blogs/{id}` | Update a blog |
-| DELETE | `/blogs/{id}` | Remove a blog |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| GET | `/blogs` | Get all blogs with category | Yes |
+| GET | `/blogs/{id}` | Get blog by ID | Yes |
+| GET | `/blogs/category/{categoryId}` | Get blogs filtered by category | Yes |
+| POST | `/blogs` | Create a blog | Yes |
+| PUT | `/blogs/{id}` | Update a blog | Yes |
+| DELETE | `/blogs/{id}` | Remove a blog | Yes |
 
 ### Categories
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/categories` | Get all categories with blogs |
-| GET | `/categories/{id}` | Get category by ID |
-| POST | `/categories` | Create a category |
-| PUT | `/categories/{id}` | Update a category |
-| DELETE | `/categories/{id}` | Remove a category |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| GET | `/categories` | Get all categories with blogs | Yes |
+| GET | `/categories/{id}` | Get category by ID | Yes |
+| POST | `/categories` | Create a category | Yes |
+| PUT | `/categories/{id}` | Update a category | Yes |
+| DELETE | `/categories/{id}` | Remove a category | Yes |
 
 ### Comments
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/comments/blog/{blogId}` | Get top-level comments for a blog |
-| GET | `/comments/{id}` | Get comment with its replies |
-| POST | `/comments` | Create a comment or reply |
-| PUT | `/comments/{id}` | Update comment body |
-| DELETE | `/comments/{id}` | Remove a comment |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| GET | `/comments/blog/{blogId}` | Get top-level comments for a blog | Yes |
+| GET | `/comments/{id}` | Get comment with its replies | Yes |
+| POST | `/comments` | Create a comment or reply | Yes |
+| PUT | `/comments/{id}` | Update comment body | Yes |
+| DELETE | `/comments/{id}` | Remove a comment | Yes |
+
+> **Note:** every route above requires a bearer token by default (`RequireAuthorization()` is applied to the whole `/api` group in `Program.cs`) except the two explicitly marked "No". See [Authentication (JWT)](#authentication-jwt) for why this is soon to change for the read-only (`GET`) routes.
 
 ---
 
-## Key Design Decisions
+## Authentication (JWT)
+
+This branch (`auth_1`) adds JWT-based authentication on top of ASP.NET Core Identity. This section documents how it's wired up, how to configure it locally, and an important note on where this design should go next.
+
+### How it works
+
+1. `POST /users/register` creates a user via `UserManager<AppUser>`.
+2. `POST /users/login` (`GetLoginQueryHandler`) verifies the email/password via `UserManager.CheckPasswordAsync`, then asks `IJwtService` to mint a token.
+3. `JwtService` (`Infrastructure/ZenBlog.Persistence/Concrete/JwtService.cs`) builds a `JwtSecurityToken` signed with HMAC-SHA256, using a `SymmetricSecurityKey` derived from a configured secret. It adds identity claims (`NameIdentifier`, `Name`, `Email`, `GivenName`) plus one `ClaimTypes.Role` claim per role the user is in (via `UserManager.GetRolesAsync`), so `[Authorize(Roles = "...")]` can be used downstream.
+4. On every subsequent request, the ASP.NET Core JWT Bearer middleware (registered via `AddAuthentication().AddJwtBearer(...)` in `Persistence`'s `ServiceRegistration`) validates the token's signature, issuer, audience, and expiry, and populates `HttpContext.User` with its claims.
+5. `Program.cs` applies `RequireAuthorization()` to the whole `/api` route group, with `/users/register` and `/users/login` explicitly opted out via `.AllowAnonymous()` — see the table in [Features & Endpoints](#features--endpoints) for exactly which routes that currently covers.
+
+### Configuring the signing key: appsettings vs. User Secrets
+
+The token's `Issuer`, `Audience`, and `SecretKey` are bound from a `JwtTokenOptions` section in configuration (`configuration.GetSection("JwtTokenOptions")`). ASP.NET Core merges configuration from several sources, layered in this order (each later source overrides the same key from an earlier one): `appsettings.json` → `appsettings.{Environment}.json` → **User Secrets** (Development only) → environment variables → command-line args.
+
+This matters because `appsettings*.json` files are committed to git — anything in them is public the moment it's pushed, permanently (even if later removed, it stays in git history). The `SecretKey` must never be a real value in a committed file. Two different mechanisms handle "real value, not in git," for two different situations:
+
+| | `appsettings.json` | User Secrets |
+|---|---|---|
+| Stored where | In the repo, tracked by git | A JSON file outside the repo, in your OS user profile |
+| Committed to GitHub? | Always | Never |
+| Use for | Non-secret config, or placeholders | Real secrets, local development only |
+| Available in production? | Yes | No — only loads when `ASPNETCORE_ENVIRONMENT=Development` |
+| Set via | Editing the file directly | `dotnet user-secrets set "Key" "value"` |
+
+**Local development — use User Secrets:**
+
+```bash
+cd Presentation/ZenBlog.API
+
+# Only needed if the project doesn't already have a UserSecretsId in its .csproj
+# (this one already does, so this step is a no-op here):
+dotnet user-secrets init
+
+dotnet user-secrets set "JwtTokenOptions:SecretKey" "a-long-random-string-at-least-32-bytes"
+dotnet user-secrets set "JwtTokenOptions:Issuer" "ZenBlog.API"
+dotnet user-secrets set "JwtTokenOptions:Audience" "ZenBlog.Client"
+
+# Confirm what's stored, and where the file lives:
+dotnet user-secrets list
+```
+
+The `:` addresses the nested `SecretKey` property inside the `JwtTokenOptions` section, matching `configuration.GetSection("JwtTokenOptions")` in code. `appsettings.json`'s own `JwtTokenOptions.SecretKey` is intentionally left as `""` — a non-functional placeholder — precisely so a real key can only come from User Secrets (locally) or the next mechanism (elsewhere).
+
+**Staging/production — use environment variables**, since User Secrets never loads outside Development:
+
+```bash
+export JwtTokenOptions__SecretKey="the-real-production-secret"
+```
+
+(`__`, double underscore, instead of `:`, since most shells don't allow `:` in variable names.) This is exactly why `appsettings.json`'s placeholder must stay empty rather than holding a real key — a real deployment is expected to override it this way, via whatever secret-injection mechanism the host provides (Docker `-e`, Kubernetes `Secret` env vars, Azure App Service application settings, etc.).
+
+### ⚠️ Recommended next step: move to the `auth_2` design instead of extending this branch
+
+While this branch (`auth_1`) is now functionally correct after the fixes above (token validation actually runs, roles are included, the login endpoint doesn't leak which emails are registered), a separate implementation — referred to here as **`auth_2`** — was built independently on top of `main` and is the version recommended to move forward with. Reasons:
+
+1. **Fixes a real authorization bug that this branch does not.** `CreateBlogCommandHandler` and `CreateCommentCommandHandler` on this branch still trust a client-supplied `UserId` in the request body. `auth_2` takes the id from the validated token (via a new `ICurrentUserService`) instead, so an authenticated caller can no longer create a post or comment and attribute it to a different user's id.
+2. **Cleaner architecture.** `main` already has an empty `ZenBlog.Infrastructure` project reserved for cross-cutting concerns like auth. This branch instead added all the JWT/Identity wiring into `ZenBlog.Persistence`, mixing database-persistence concerns with authentication concerns. `auth_2` puts `IJwtTokenGenerator`, `ICurrentUserService`, and the authentication scheme registration in `ZenBlog.Infrastructure`, where they belong.
+3. **Fails fast instead of silently.** `auth_2` doesn't commit a `Secret` value anywhere, including as a placeholder, and throws immediately at startup if `JwtSettings` isn't configured — instead of this branch's approach of a silent empty-string placeholder that only fails when a token is actually requested.
+4. **More standard, more future-proof claims.** `auth_2` includes `jti` (a unique token id, useful later for revocation/blacklisting) and standard `JwtRegisteredClaimNames` (`sub`, `email`) alongside the `ClaimTypes` this branch uses alone.
+5. **Login input is validated.** `auth_2` adds a `LoginValidator` (FluentValidation); this branch's login accepts any shape of request.
+6. **A more deliberate endpoint-protection model.** `auth_2` applies `.RequireAuthorization()` per mutating endpoint (create/update/delete) rather than to the whole `/api` group, leaving `GET` (read) routes public by default — arguably the correct behavior for a public blog, where reading posts shouldn't require an account. This branch currently requires a login even to read a blog post, which likely isn't the intended product behavior.
+
+
+
 
 ### Generic Repository with Include Support
 `IRepository<TEntity>` exposes `GetQuery()` for flexible querying, plus two include-capable methods that keep EF Core out of the Application layer:
