@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Needed here (not just in Application) because JwtService and ServiceRegistration in this
+         project directly use Microsoft.IdentityModel.Tokens (SymmetricSecurityKey, SigningCredentials,
+         TokenValidationParameters) and Microsoft.AspNetCore.Authentication.JwtBearer (AddJwtBearer). -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
     <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.10" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">

@@ -28,6 +28,15 @@ namespace ZenBlog.Persistence.Concrete
 
             };
 
+            //We look the user back up by id to get their current roles from Identity and add one ClaimTypes.Role claim per role 
+
+            var identityUser = await user_manager.FindByIdAsync(userResult.Id);
+            if (identityUser is not null)
+            {
+                var roles = await user_manager.GetRolesAsync(identityUser);
+                claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+            }
+
             JwtSecurityToken token = new(
                     issuer: _jwtTokenOption.Issuer,
                     audience: _jwtTokenOption.Audience,
@@ -36,6 +45,7 @@ namespace ZenBlog.Persistence.Concrete
                     notBefore: dateTimeNow,
                     signingCredentials : new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
                 );
+
             GetLoginQueryResult response = new();
             response.Token = new JwtSecurityTokenHandler().WriteToken(token);
             response.ExpirationTime = dateTimeNow.AddMinutes(_jwtTokenOption.ExpirationMinutes);

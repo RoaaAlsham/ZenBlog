@@ -28,10 +28,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<CustomExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
+
+// UseAuthentication() must run before UseAuthorization().Swapping the order would mean authorization checks run
+// against an empty/anonymous user every time, and every protected endpoint would return 401.
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// RequireAuthorization() here applies to every endpoint registered under "/api" by default.
+// Endpoints that must be reachable without a token (register, login) opt out individually with
+// .AllowAnonymous() in their own endpoint files
+
 app.MapGroup("/api").RequireAuthorization().RegisterEndpoints();
 
 app.Run();

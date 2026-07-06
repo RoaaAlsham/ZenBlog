@@ -17,14 +17,20 @@ namespace ZenBlog.Application.Features.Users.Handlers
     {
         public async Task<BaseResult<GetLoginQueryResult>> Handle(GetLoginQuery request, CancellationToken cancellationToken)
         {
+            //Two different messages let an attacker enumerate which emails are
+            // registered simply by trying logins and reading the response,
+            //so both cases must indistinguishable to the caller.
+
+            const string invalidCredentialsMessage = "Invalid email or password.";
+
             var user = await userManager.FindByEmailAsync(request.Email);
             if (user == null) {
-                return BaseResult<GetLoginQueryResult>.Failure("User not found.");
+                return BaseResult<GetLoginQueryResult>.Failure(invalidCredentialsMessage);
             }
             var result = await userManager.CheckPasswordAsync(user, request.Password);
             if (!result)
             {
-                return BaseResult<GetLoginQueryResult>.Failure("Invalid email or password.");// dont specify which one is invalid for security reasons
+                return BaseResult<GetLoginQueryResult>.Failure(invalidCredentialsMessage);
             }
 
             var userResult = mapper.Map<GetAllUsersQueryResult>(user);
