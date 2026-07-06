@@ -11,7 +11,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 // Add services to the container.
 builder.Services.AddPersistenceServices(builder.Configuration);
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -28,10 +28,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<CustomExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapGroup("/api").RegisterEndpoints();
+app.MapGroup("/api").RequireAuthorization().RegisterEndpoints();
 
 app.Run();

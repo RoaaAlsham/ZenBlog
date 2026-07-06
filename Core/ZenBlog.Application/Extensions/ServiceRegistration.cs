@@ -1,9 +1,10 @@
 ﻿
 using FluentValidation;
-using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ZenBlog.Application.Behaviors;
 using ZenBlog.Application.Features.Categories.Mapping;
+using ZenBlog.Application.Options;
 
 /*
  An assembly is the compiled output of one .csproj project — a .dll file on disk
@@ -21,7 +22,7 @@ namespace ZenBlog.Application.Extensions
 {
     public static class ServiceRegistration
     {
-        public static void AddApplication(this IServiceCollection services) {
+        public static void AddApplication(this IServiceCollection services,IConfiguration configuration) {
             // AutoMapper — scans this assembly for all Profile classes
             services.AddAutoMapper(cfg =>
             {
@@ -35,6 +36,9 @@ namespace ZenBlog.Application.Extensions
             });
 
             services.AddValidatorsFromAssembly(typeof(CategoryMappingProfile).Assembly);
+
+            services.Configure<JwtTokenOptions>(configuration.GetSection(nameof(JwtTokenOptions)));
+        
         }
 
     }

@@ -7,6 +7,7 @@ using ZenBlog.Domain.Entities;
 using ZenBlog.Persistence.Concrete;
 using ZenBlog.Persistence.Context;
 using ZenBlog.Persistence.Intercepters.ZenBlog.Persistence.Interceptors;
+using ZenBlog.Application.Contracts;
 
 namespace ZenBlog.Persistence.Extentions
 {
@@ -35,6 +36,7 @@ namespace ZenBlog.Persistence.Extentions
 
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
+            services.AddScoped<IJwtService, JwtService>();
         }
     }
 }
