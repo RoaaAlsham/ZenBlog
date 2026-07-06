@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core\ZenBlog.Application\ZenBlog.Application.csproj" />
     <ProjectReference Include="..\..\Infrastructure\ZenBlog.Persistence\ZenBlog.Persistence.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\ZenBlog.Infrastructure\ZenBlog.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

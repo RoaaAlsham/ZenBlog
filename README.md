@@ -11,6 +11,7 @@ A RESTful blog API built with **ASP.NET Core (.NET 10)** following **Clean Archi
 - [Tech Stack](#tech-stack)
 - [Domain Entities](#domain-entities)
 - [Features & Endpoints](#features--endpoints)
+- [Authentication (JWT)](#authentication-jwt)
 - [Key Design Decisions](#key-design-decisions)
 - [Getting Started](#getting-started)
 - [Configuration](#configuration)
@@ -29,17 +30,18 @@ ZenBlog follows **Clean Architecture** with four layers that depend strictly inw
 ├─────────────────────────────────────────────┤
 │            Infrastructure                  │
 │            ZenBlog.Persistence             │  ← EF Core, Repositories, Migrations
-│            ZenBlog.Infrastructure          │  ← (reserved for external services)
+│            ZenBlog.Infrastructure          │  ← JWT auth, current-user service
 ├─────────────────────────────────────────────┤
 │            Core                             │
-│            ZenBlog.Application             │  ← CQRS, Handlers, Validators, DTOs
+│            ZenBlog.Application             │  ← CQRS, Handlers, Validators, DTOs, Identity contracts
 │            ZenBlog.Domain                  │  ← Entities, no dependencies
 └─────────────────────────────────────────────┘
 ```
 
 - **Domain** has zero dependencies — pure C# entities.
-- **Application** depends only on Domain — no EF Core, no HTTP.
-- **Persistence** implements Application contracts — EF Core and PostgreSQL live here only.
+- **Application** depends only on Domain — no EF Core, no HTTP, no JWT library. It defines *ports* (`IJwtTokenGenerator`, `ICurrentUserService`) that outer layers implement.
+- **Persistence** implements the persistence contracts — EF Core and PostgreSQL live here only.
+- **Infrastructure** implements the identity/auth contracts — JWT creation and validation, current-user resolution.
 - **API** wires everything together — minimal endpoints, middleware, no business logic.
 
 ---
@@ -58,6 +60,9 @@ ZenBlogServer/
 │   │   ├── Behaviors/
 │   │   │   └── ValidationBehavior.cs
 │   │   ├── Contracts/
+│   │   │   ├── Identity/
+│   │   │   │   ├── ICurrentUserService.cs
+│   │   │   │   └── IJwtTokenGenerator.cs
 │   │   │   └── Persistence/
 │   │   │       ├── IRepository.cs
 │   │   │       └── IUnitOfWork.cs
@@ -67,7 +72,18 @@ ZenBlogServer/
 │   │   │   └── UserDto.cs
 │   │   ├── Extensions/
 │   │   │   └── ServiceRegistration.cs
+│   │   ├── Models/
+│   │   │   └── JwtSettings.cs
 │   │   └── Features/
+│   │       ├── Auth/
+│   │       │   ├── Commands/
+│   │       │   │   └── LoginCommand.cs
+│   │       │   ├── Handlers/
+│   │       │   │   └── LoginCommandHandler.cs
+│   │       │   ├── Results/
+│   │       │   │   └── LoginResult.cs
+│   │       │   └── Validators/
+│   │       │       └── LoginValidator.cs
 │   │       ├── Blogs/
 │   │       │   ├── Commands/
 │   │       │   │   ├── CreateBlogCommand.cs
@@ -165,6 +181,11 @@ ZenBlogServer/
 │       └── ZenBlog.Domain.csproj
 ├── Infrastructure/
 │   ├── ZenBlog.Infrastructure/
+│   │   ├── Extensions/
+│   │   │   └── ServiceRegistration.cs
+│   │   ├── Identity/
+│   │   │   ├── CurrentUserService.cs
+│   │   │   └── JwtTokenGenerator.cs
 │   │   └── ZenBlog.Infrastructure.csproj
 │   └── ZenBlog.Persistence/
 │       ├── Concrete/
@@ -184,6 +205,7 @@ ZenBlogServer/
         ├── CustomMiddlewares/
         │   └── CustomExceptionHandlingMiddleware.cs
         ├── Endpoints/
+        │   ├── AuthEndpoints.cs
         │   ├── BlogEndpoints.cs
         │   ├── CategoryEndpoints.cs
         │   ├── CommentEndpoints.cs
@@ -206,6 +228,8 @@ ZenBlogServer/
 | ORM | Entity Framework Core | 10.0.8 |
 | Database | PostgreSQL via Npgsql | 10.0.1 |
 | Identity | ASP.NET Core Identity + EF Core | 10.0.8 |
+| Authentication | JWT Bearer (`Microsoft.AspNetCore.Authentication.JwtBearer`) | 10.0.8 |
+| Token handling | `System.IdentityModel.Tokens.Jwt` | 8.15.1 |
 | Lazy Loading | EF Core Proxies | 10.0.8 |
 | CQRS / Mediator | MediatR | — |
 | Object Mapping | AutoMapper | — |
@@ -264,47 +288,138 @@ All domain entities inherit from `BaseEntity` which provides `Id` (Guid), `Creat
 
 ## Features & Endpoints
 
+### Auth
+
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| POST | `/auth/login` | Authenticate with email + password, returns a JWT | No |
+
 ### Users
 
-| Method | Route | Description |
-|---|---|---|
-| POST | `/users/register` | Register a new user |
-| GET | `/users` | Get all users |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| POST | `/users/register` | Register a new user | No |
+| GET | `/users` | Get all users | 🔒 Yes  |
 
 ### Blogs
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/blogs` | Get all blogs with category |
-| GET | `/blogs/{id}` | Get blog by ID |
-| GET | `/blogs/category/{categoryId}` | Get blogs filtered by category |
-| POST | `/blogs` | Create a blog |
-| PUT | `/blogs/{id}` | Update a blog |
-| DELETE | `/blogs/{id}` | Remove a blog |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| GET | `/blogs` | Get all blogs with category | No |
+| GET | `/blogs/{id}` | Get blog by ID | No |
+| GET | `/blogs/category/{categoryId}` | Get blogs filtered by category | No |
+| POST | `/blogs` | Create a blog | 🔒 Yes |
+| PUT | `/blogs/{id}` | Update a blog | 🔒 Yes |
+| DELETE | `/blogs/{id}` | Remove a blog | 🔒 Yes |
 
 ### Categories
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/categories` | Get all categories with blogs |
-| GET | `/categories/{id}` | Get category by ID |
-| POST | `/categories` | Create a category |
-| PUT | `/categories/{id}` | Update a category |
-| DELETE | `/categories/{id}` | Remove a category |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| GET | `/categories` | Get all categories with blogs | No |
+| GET | `/categories/{id}` | Get category by ID | No |
+| POST | `/categories` | Create a category | 🔒 Yes |
+| PUT | `/categories/{id}` | Update a category | 🔒 Yes |
+| DELETE | `/categories/{id}` | Remove a category | 🔒 Yes |
 
 ### Comments
 
-| Method | Route | Description |
-|---|---|---|
-| GET | `/comments/blog/{blogId}` | Get top-level comments for a blog |
-| GET | `/comments/{id}` | Get comment with its replies |
-| POST | `/comments` | Create a comment or reply |
-| PUT | `/comments/{id}` | Update comment body |
-| DELETE | `/comments/{id}` | Remove a comment |
+| Method | Route | Description | Auth required |
+|---|---|---|---|
+| GET | `/comments/blog/{blogId}` | Get top-level comments for a blog | No |
+| GET | `/comments/{id}` | Get comment with its replies | No |
+| POST | `/comments` | Create a comment or reply | 🔒 Yes |
+| PUT | `/comments/{id}` | Update comment body | 🔒 Yes |
+| DELETE | `/comments/{id}` | Remove a comment | 🔒 Yes |
 
 ---
 
-## Key Design Decisions
+## Authentication (JWT)
+
+ZenBlog uses **JWT Bearer authentication**, implemented while preserving the Clean Architecture dependency rule: Application only knows about *ports* (interfaces); Infrastructure provides the actual implementation.
+
+### How the pieces fit together
+
+```
+Application (ports, no JWT library dependency)
+  Contracts/Identity/IJwtTokenGenerator.cs   — "give me a token for this user"
+  Contracts/Identity/ICurrentUserService.cs  — "who is calling right now"
+  Models/JwtSettings.cs                      — plain POCO bound from configuration
+  Features/Auth/                             — LoginCommand → LoginCommandHandler → LoginResult
+
+Infrastructure (implements the ports)
+  Identity/JwtTokenGenerator.cs   — builds the signed JWT (System.IdentityModel.Tokens.Jwt)
+  Identity/CurrentUserService.cs — reads claims off HttpContext.User
+  Extensions/ServiceRegistration.cs
+      → binds JwtSettings
+      → registers IJwtTokenGenerator / ICurrentUserService
+      → configures the JwtBearer authentication scheme (validates incoming tokens)
+
+Presentation
+  Endpoints/AuthEndpoints.cs → POST /auth/login
+  Program.cs → app.UseAuthentication() before app.UseAuthorization()
+  .RequireAuthorization() on every mutating (POST/PUT/DELETE) endpoint
+```
+
+`JwtTokenGenerator` (creates tokens at login) and the `AddJwtBearer(...)` scheme configured in `ServiceRegistration` (validates tokens on every request) are two separate responsibilities that happen to share the same secret/issuer/audience.
+
+### Login flow
+
+```
+POST /auth/login  { "email": "...", "password": "..." }
+        │
+        ▼
+LoginCommand → ValidationBehavior (email/password not empty)
+        │
+        ▼
+LoginCommandHandler
+   ├─ userManager.FindByEmailAsync(email)
+   ├─ userManager.CheckPasswordAsync(user, password)
+   ├─ userManager.GetRolesAsync(user)
+   └─ tokenGenerator.GenerateToken(user, roles) → (token, expiresAtUtc)
+        │
+        ▼
+200 OK { "userId": "...", "email": "...", "token": "eyJhbGciOi...", "expiresAtUtc": "..." }
+```
+
+A wrong email and a wrong password both return the same `"Invalid email or password."` message — this avoids leaking which one was incorrect (user-enumeration protection).
+
+### Trusting the token, not the request body
+
+Handlers that create owned resources (`CreateBlogCommandHandler`, `CreateCommentCommandHandler`) inject `ICurrentUserService` and overwrite the entity's `UserId` with the authenticated caller's id, ignoring any `UserId` sent in the request body:
+
+```csharp
+var blog = mapper.Map<Blog>(request);
+blog.UserId = currentUser.UserId!;   // never trust a client-supplied UserId
+await repository.CreateAsync(blog);
+```
+
+### Setting the JWT secret (required before running)
+
+The signing secret is never committed — it's stored in **.NET User Secrets**, the same way the database connection string is handled:
+
+```bash
+dotnet user-secrets set "JwtSettings:Secret" "<a random string, at least 32 characters>" --project Presentation/ZenBlog.API
+```
+
+Generate a proper random value rather than typing one by hand:
+
+```bash
+openssl rand -base64 32
+```
+
+`Issuer`, `Audience`, and `ExpiryMinutes` are non-secret and live in `appsettings.json` under `JwtSettings` (see [Configuration](#configuration)).
+
+### Calling a protected endpoint
+
+```
+POST /auth/login              → copy "token" from the response
+POST /blogs
+  Header: Authorization: Bearer <token>
+```
+Requests to protected routes without a valid, non-expired token receive `401 Unauthorized`.
+
+---
 
 ### Generic Repository with Include Support
 `IRepository<TEntity>` exposes `GetQuery()` for flexible querying, plus two include-capable methods that keep EF Core out of the Application layer:
@@ -407,9 +522,22 @@ The API will be available at `https://localhost:7117`.
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=ZenBlogDb;Username=postgres;Password=yourpassword"
+  },
+  "JwtSettings": {
+    "Issuer": "ZenBlogAPI",
+    "Audience": "ZenBlogClient",
+    "ExpiryMinutes": 60
   }
 }
 ```
+
+`JwtSettings:Secret` is **not** set here — like the connection string, it's kept out of source control via User Secrets:
+
+```bash
+dotnet user-secrets set "JwtSettings:Secret" "<a random string, at least 32 characters>" --project Presentation/ZenBlog.API
+```
+
+Without this, the app throws `ArgumentNullException` at startup when building the signing key.
 
 ---
 

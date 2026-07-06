@@ -6,4 +6,25 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Infrastructure implements the ports (interfaces) that Application defines -->
+    <ProjectReference Include="..\..\Core\ZenBlog.Application\ZenBlog.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      ZenBlog.Infrastructure uses Microsoft.NET.Sdk (plain class library), not Sdk.Web,
+      so types like IHttpContextAccessor and the ClaimsPrincipal extension methods aren't
+      visible by default - they live in the ASP.NET Core shared framework rather than a
+      standalone NuGet package. FrameworkReference pulls in that shared framework without
+      needing to convert this into a web project.
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.1" />
+  </ItemGroup>
+
 </Project>

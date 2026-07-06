@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using MediatR;
 using ZenBlog.Application.Base;
+using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Comments.Commands;
 using ZenBlog.Application.Features.Comments.Results;
@@ -9,12 +10,15 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Comments.Handlers
 {
     public class CreateCommentCommandHandler(IRepository<Comment> repo,
-        IUnitOfWork unitOfWork, IMapper mapper) :
+        IUnitOfWork unitOfWork, IMapper mapper, ICurrentUserService currentUser) :
         IRequestHandler<CreateCommentCommand, BaseResult<CreateCommentResult>>
     {
         public async Task<BaseResult<CreateCommentResult>> Handle(CreateCommentCommand request, CancellationToken cancellationToken)
         {
            var comment = mapper.Map<Comment>(request);
+            // Same rule as blogs: the comment author is the authenticated caller,
+            // never whatever UserId the client happened to put in the request body.
+            comment.UserId = currentUser.UserId!;
             await repo.CreateAsync(comment);
             var saved = await unitOfWork.SaveChangesAsync();
 

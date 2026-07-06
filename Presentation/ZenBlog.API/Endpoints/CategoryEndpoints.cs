@@ -29,7 +29,7 @@ namespace ZenBlog.API.Endpoints
 
                 // Ideally, you return 201 Created with the ID of the created category
                 return response.IsSuccess ? Results.Created($"/categories/{response.Data}", null) : Results.BadRequest("Could not create the category instance");
-            });
+            }).RequireAuthorization();
 
             categories.MapGet("/{id}", async (IMediator _mediator,Guid id) =>
             {
@@ -45,13 +45,13 @@ namespace ZenBlog.API.Endpoints
                 }
                 var response = await _mediator.Send(command);
                 return response.IsSuccess ? Results.NoContent() : Results.BadRequest(new { Errors=response.Errors});
-            });
+            }).RequireAuthorization();
 
             categories.MapDelete("/{id:guid}", async (IMediator _mediator, Guid id) =>
             {
                 var response = await _mediator.Send(new RemoveCategoryCommand(id));
                 return response.IsSuccess ? Results.NoContent() : Results.BadRequest(new { Errors = response.Errors });
-            });
+            }).RequireAuthorization();
 
         }
     }

@@ -19,7 +19,7 @@ namespace ZenBlog.API.Endpoints
             {
                var response = await _mediator.Send(command);
                 return response.IsSuccess ? Results.Ok(response.Data) : Results.BadRequest(response.Errors);        
-            });
+            }).RequireAuthorization();
 
             blogs.MapGet("/{id}", async (IMediator _mediator, Guid id) =>
             {
@@ -35,13 +35,13 @@ namespace ZenBlog.API.Endpoints
                 }
                 var response = await _mediator.Send(command);
                 return response.IsSuccess ? Results.Ok(response.Data) : Results.BadRequest(response.Errors);
-            });
+            }).RequireAuthorization();
 
             blogs.MapDelete("/{id}", async (IMediator _mediator, Guid id) =>
             {
                 var response = await _mediator.Send(new RemoveBlogCommand(id));
                 return response.IsSuccess ? Results.Ok() : Results.BadRequest(response.Errors);
-            });
+            }).RequireAuthorization();
 
             blogs.MapGet("/category/{categoryId}", async (IMediator _mediator, Guid categoryId) =>
             {

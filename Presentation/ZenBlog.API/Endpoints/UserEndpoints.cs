@@ -18,7 +18,7 @@ namespace ZenBlog.API.Endpoints
             {
                 var result = await mediator.Send(new GetAllUsersQuery());
                 return result.IsSuccess ? Results.Ok(result.Data) : Results.BadRequest(result.Errors);
-            });
+            }).RequireAuthorization();
 
 
 

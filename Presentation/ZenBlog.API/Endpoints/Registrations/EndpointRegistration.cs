@@ -8,6 +8,7 @@
             erb.RegisterBlogEndpoints();
             erb.RegisterUserEndpoints();
             erb.RegisterCommentEndpoints();
+            erb.RegisterAuthEndpoints();
         }
     }
 }
