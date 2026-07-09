@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/Core/">
     <Project Path="Core/ZenBlog.Application/ZenBlog.Application.csproj" />
+    <Project Path="Core/ZenBlog.Application.Tests/ZenBlog.Application.Tests.csproj" />
     <Project Path="Core/ZenBlog.Domain/ZenBlog.Domain.csproj" />
   </Folder>
   <Folder Name="/Infrastructure/">
@@ -9,5 +10,6 @@
   </Folder>
   <Folder Name="/Presentation/">
     <Project Path="Presentation/ZenBlog.API/ZenBlog.API.csproj" />
+    <Project Path="Presentation/ZenBlog.API.IntegrationTests/ZenBlog.API.IntegrationTests.csproj" />
   </Folder>
 </Solution>
