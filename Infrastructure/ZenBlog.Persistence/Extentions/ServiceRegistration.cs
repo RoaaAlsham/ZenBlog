@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Domain.Entities;
 using ZenBlog.Persistence.Concrete;
@@ -13,7 +15,16 @@ namespace ZenBlog.Persistence.Extentions
     public static class ServiceRegistration
     {
         public static void AddPersistenceServices(this IServiceCollection services, IConfiguration configuration) { 
-            services.AddDbContext<AppDbContext>(options => {
+            services.AddDbContext<AppDbContext>((serviceProvider, options) => {
+                var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
+                if (environment.IsEnvironment("Testing"))
+                {
+                    var databaseName = configuration["InMemoryDatabaseName"] ?? "ZenBlogTests";
+                    options.UseInMemoryDatabase(databaseName);
+                    options.AddInterceptors(new AuditDbContextInterceptor());
+                    return;
+                }
+
                 options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"),
                     npgsqlOptions =>
                     {
