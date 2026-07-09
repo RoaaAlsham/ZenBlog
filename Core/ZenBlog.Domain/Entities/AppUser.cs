@@ -9,6 +9,7 @@ public class AppUser : IdentityUser<string>
 
     public virtual ICollection<Blog> Blogs { get; set; } = [];
     public virtual ICollection<Comment> Comments { get; set; } = [];
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = [];
 }
 // Lazy Loading is not enabled by default in EF Core,
 // so we need to explicitly mark the navigation properties

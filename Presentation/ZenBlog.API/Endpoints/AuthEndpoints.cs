@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using ZenBlog.API.Extensions;
 using ZenBlog.Application.Features.Auth.Commands;
 
 namespace ZenBlog.API.Endpoints
@@ -12,10 +13,14 @@ namespace ZenBlog.API.Endpoints
             auth.MapPost("/login", async (IMediator mediator, LoginCommand command) =>
             {
                 var response = await mediator.Send(command);
-                // 401, not 400: this failure means "who you claim to be is not accepted",
-                // which is what Unauthorized communicates to API clients.
-                return response.IsSuccess ? Results.Ok(response.Data) : Results.Unauthorized();
-            });
+                return response.ToHttpResult();
+            }).RequireRateLimiting("login-per-ip");
+
+            auth.MapPost("/refresh", async (IMediator mediator, RefreshTokenCommand command) =>
+            {
+                var response = await mediator.Send(command);
+                return response.ToHttpResult();
+            }).RequireRateLimiting("refresh-per-ip");
         }
     }
 }

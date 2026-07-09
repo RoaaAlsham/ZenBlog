@@ -13,7 +13,7 @@ namespace ZenBlog.Infrastructure.Identity
     {
         private readonly JwtSettings _settings = jwtOptions.Value;
 
-        public (string Token, DateTime ExpiresAtUtc) GenerateToken(AppUser user, IList<string> roles)
+        public (string Token, DateTime ExpiresAtUtc) GenerateToken(AppUser user, IList<string> roles, int? expiryMinutes = null)
         {
             var claims = new List<Claim>
             {
@@ -28,7 +28,7 @@ namespace ZenBlog.Infrastructure.Identity
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Secret));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expiresAtUtc = DateTime.UtcNow.AddMinutes(_settings.ExpiryMinutes);
+            var expiresAtUtc = DateTime.UtcNow.AddMinutes(expiryMinutes ?? _settings.ExpiryMinutes);
 
             var token = new JwtSecurityToken(
                 issuer: _settings.Issuer,

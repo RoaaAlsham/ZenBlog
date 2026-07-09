@@ -9,6 +9,6 @@ namespace ZenBlog.Application.Contracts.Identity
     {
         // Returns both the token and the exact expiry it was signed with, so callers
         // never have to duplicate/guess the ExpiryMinutes value from JwtSettings.
-        (string Token, DateTime ExpiresAtUtc) GenerateToken(AppUser user, IList<string> roles);
+        (string Token, DateTime ExpiresAtUtc) GenerateToken(AppUser user, IList<string> roles, int? expiryMinutes = null);
     }
 }

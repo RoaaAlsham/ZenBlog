@@ -20,6 +20,7 @@ namespace ZenBlog.Persistence.Context
         public DbSet<SocialMedia> SocialMedias { get; set; }
 
         public DbSet<Comment> Comments { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -40,6 +41,17 @@ namespace ZenBlog.Persistence.Context
                       .WithMany(u => u.Comments)
                       .HasForeignKey(c => c.UserId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                entity.HasIndex(rt => rt.TokenHash).IsUnique();
+                entity.HasIndex(rt => new { rt.UserId, rt.ExpiresAtUtc });
+
+                entity.HasOne(rt => rt.User)
+                    .WithMany(u => u.RefreshTokens)
+                    .HasForeignKey(rt => rt.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }
