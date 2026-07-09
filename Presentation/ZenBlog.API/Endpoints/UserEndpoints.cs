@@ -1,6 +1,8 @@
 ﻿using MediatR;
+using ZenBlog.API.Extensions;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Queries;
+
 namespace ZenBlog.API.Endpoints
 {
     public static class UserEndpoints
@@ -8,21 +10,17 @@ namespace ZenBlog.API.Endpoints
         public static void RegisterUserEndpoints(this IEndpointRouteBuilder erb)
         {
             var users = erb.MapGroup("/users").WithTags("Users");
-            users.MapPost("/register", async (CreateUserCommand command, IMediator mediator) =>
+            users.MapPost("/register", async (IMediator mediator, CreateUserCommand command) =>
             {
                 var result = await mediator.Send(command);
-                return result.IsSuccess ? Results.Ok(result.Data) : Results.BadRequest(result.Errors);
+                return result.ToHttpResult();
             });
 
             users.MapGet("/", async (IMediator mediator) =>
             {
                 var result = await mediator.Send(new GetAllUsersQuery());
-                return result.IsSuccess ? Results.Ok(result.Data) : Results.BadRequest(result.Errors);
+                return result.ToHttpResult();
             }).RequireAuthorization();
-
-
-
-
         }
     }
 }
