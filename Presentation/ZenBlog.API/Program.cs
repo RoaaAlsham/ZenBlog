@@ -4,6 +4,7 @@ using ZenBlog.Infrastructure.Extensions;
 using ZenBlog.API.Endpoints.Registrations;
 using Scalar.AspNetCore;
 using ZenBlog.API.CustomMiddlewares;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 // Make JSON property names case-insensitive
@@ -18,6 +19,47 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    if (builder.Environment.IsEnvironment("Testing"))
+    {
+        options.AddPolicy("login-per-ip", _ => RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("refresh-per-ip", _ => RateLimitPartition.GetNoLimiter("testing"));
+    }
+    else
+    {
+        options.AddPolicy("login-per-ip", context =>
+        {
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ipAddress,
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                });
+        });
+        // Stricter than login: refresh tokens are long-lived secrets and this endpoint
+        // is an attractive replay/guessing target, so allow fewer attempts per IP.
+        options.AddPolicy("refresh-per-ip", context =>
+        {
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ipAddress,
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(5),
+                    QueueLimit = 0,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                });
+        });
+    }
+});
 
 var app = builder.Build();
 
@@ -29,7 +71,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<CustomExceptionHandlingMiddleware>();
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
+app.UseRateLimiter();
 
 // UseAuthentication MUST run before UseAuthorization: authentication figures out
 // WHO is calling (validates the bearer token, populates HttpContext.User);
@@ -44,3 +90,5 @@ app.MapControllers();
 app.MapGroup("/api").RegisterEndpoints();
 
 app.Run();
+
+public partial class Program { }
