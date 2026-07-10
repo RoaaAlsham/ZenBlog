@@ -7,9 +7,30 @@ using ZenBlog.API.CustomMiddlewares;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
-// Make JSON property names case-insensitive
+
+// Make JSON property names case-insensitive (Next.js client sends camelCase).
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNameCaseInsensitive = true);
+
+// ---------------------------------------------------------------------------
+// Verify Backend CORS Configuration (required for local Next.js testing)
+// ---------------------------------------------------------------------------
+// The zenblog_client runs on http://localhost:3000 and calls this API at
+// https://localhost:7117. Browsers block that cross-origin traffic unless we
+// explicitly allow the frontend origin below.
+//
+// If your Next.js port differs (e.g. 3001), add it to WithOrigins(...).
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "https://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 // Add services to the container.
 builder.Services.AddPersistenceServices(builder.Configuration);
@@ -75,6 +96,11 @@ if (!app.Environment.IsEnvironment("Testing"))
 {
     app.UseHttpsRedirection();
 }
+
+// Enable CORS before auth and endpoint mapping so browser preflight (OPTIONS)
+// requests succeed when zenblog_client calls this API from another origin.
+app.UseCors("AllowFrontend");
+
 app.UseRateLimiter();
 
 // UseAuthentication MUST run before UseAuthorization: authentication figures out

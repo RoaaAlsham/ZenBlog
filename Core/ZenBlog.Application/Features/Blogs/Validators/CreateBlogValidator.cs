@@ -14,7 +14,9 @@ namespace ZenBlog.Application.Features.Blogs.Validators
             RuleFor(x => x.Title)
                 .NotEmpty().WithMessage("Title is required.");
             RuleFor(x => x.Description).NotEmpty().WithMessage("Description is required.");
-            RuleFor(x=>x.UserId).NotEmpty().WithMessage("UserId is required.");
+            // UserId is taken from the JWT in CreateBlogCommandHandler — do not require it from the client.
+            RuleFor(x => x.CategoryId)
+                .NotEmpty().WithMessage("Category is required.");
         }
     }
 }

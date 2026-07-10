@@ -37,17 +37,26 @@ public class CreateBlogValidatorTests
     }
 
     [Fact]
-    public void UserIdRule_FailsWhenEmpty_PassesWhenProvided()
+    public void CategoryIdRule_FailsWhenEmpty_PassesWhenProvided()
     {
         var invalid = BuildValidCommand();
-        invalid.UserId = string.Empty;
+        invalid.CategoryId = Guid.Empty;
         var invalidResult = _validator.TestValidate(invalid);
-        invalidResult.ShouldHaveValidationErrorFor(x => x.UserId);
+        invalidResult.ShouldHaveValidationErrorFor(x => x.CategoryId);
 
         var valid = BuildValidCommand();
-        valid.UserId = "user-123";
+        valid.CategoryId = Guid.NewGuid();
         var validResult = _validator.TestValidate(valid);
-        validResult.ShouldNotHaveValidationErrorFor(x => x.UserId);
+        validResult.ShouldNotHaveValidationErrorFor(x => x.CategoryId);
+    }
+
+    [Fact]
+    public void UserId_IsNotRequired_BecauseOwnershipComesFromJwt()
+    {
+        var command = BuildValidCommand();
+        command.UserId = string.Empty;
+        var result = _validator.TestValidate(command);
+        result.ShouldNotHaveValidationErrorFor(x => x.UserId);
     }
 
     private static CreateBlogCommand BuildValidCommand()
@@ -58,6 +67,6 @@ public class CreateBlogValidatorTests
             CoverImageUrl = "cover.png",
             BlogImageUrl = "blog.png",
             CategoryId = Guid.NewGuid(),
-            UserId = "user-1"
+            UserId = null!
         };
 }

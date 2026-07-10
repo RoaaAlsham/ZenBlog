@@ -51,17 +51,12 @@ public class CreateCommentCommandValidationTests
     }
 
     [Fact]
-    public void UserIdRule_FailsWhenEmpty_PassesWhenProvided()
+    public void UserId_IsNotRequired_BecauseOwnershipComesFromJwt()
     {
-        var invalid = BuildValidCommand();
-        invalid.UserId = string.Empty;
-        var invalidResult = _validator.TestValidate(invalid);
-        invalidResult.ShouldHaveValidationErrorFor(x => x.UserId);
-
-        var valid = BuildValidCommand();
-        valid.UserId = "user-1";
-        var validResult = _validator.TestValidate(valid);
-        validResult.ShouldNotHaveValidationErrorFor(x => x.UserId);
+        var command = BuildValidCommand();
+        command.UserId = string.Empty;
+        var result = _validator.TestValidate(command);
+        result.ShouldNotHaveValidationErrorFor(x => x.UserId);
     }
 
     private static CreateCommentCommand BuildValidCommand()
@@ -69,7 +64,7 @@ public class CreateCommentCommandValidationTests
         {
             Body = "Base comment",
             BlogId = Guid.NewGuid(),
-            UserId = "user-1",
+            UserId = null!,
             ParentCommentId = null
         };
 }

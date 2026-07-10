@@ -15,8 +15,7 @@ namespace ZenBlog.Application.Features.Comments.Validators
             RuleFor(x => x.BlogId)
                 .NotEmpty().WithMessage("BlogId is required.");
 
-            RuleFor(x => x.UserId)
-                .NotEmpty().WithMessage("UserId is required.");
+            // UserId is taken from the JWT in CreateCommentCommandHandler — do not require it from the client.
         }
     }
 }
