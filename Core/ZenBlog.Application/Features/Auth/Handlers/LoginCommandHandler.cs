@@ -48,7 +48,16 @@ namespace ZenBlog.Application.Features.Auth.Handlers
             }
 
             return BaseResult<LoginResult>.Success(
-                new LoginResult(user.Id, user.Email!, token, expiresAtUtc, refreshToken, refreshTokenExpiresAtUtc));
+                new LoginResult(
+                    user.Id,
+                    user.Email!,
+                    user.FirstName,
+                    user.LastName,
+                    user.ImageUrl,
+                    token,
+                    expiresAtUtc,
+                    refreshToken,
+                    refreshTokenExpiresAtUtc));
         }
     }
 }
