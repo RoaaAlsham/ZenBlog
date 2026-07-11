@@ -1,0 +1,126 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using ZenBlog.API.IntegrationTests.Helpers;
+using ZenBlog.Application.Features.Users.Commands;
+using ZenBlog.Application.Features.Users.Results;
+
+namespace ZenBlog.API.IntegrationTests.Endpoints;
+
+public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBlogApiFactory>
+{
+    private readonly ZenBlogApiFactory _factory = factory;
+    private readonly HttpClient _client = factory.CreateClient();
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    [Fact]
+    public async Task GetMe_Unauthenticated_ReturnsUnauthorized()
+    {
+        _client.UseBearerToken(null);
+        var response = await _client.GetAsync("/api/users/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMe_Authenticated_ReturnsProfile()
+    {
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "profile-me@example.com",
+            "Password123!");
+        _client.UseBearerToken(user.AccessToken);
+
+        var response = await _client.GetAsync("/api/users/me");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var profile = await response.Content.ReadFromJsonAsync<UserProfileResult>(JsonOptions);
+        Assert.NotNull(profile);
+        Assert.Equal(user.Id, profile.Id);
+        Assert.Equal(user.Email, profile.Email);
+        Assert.Equal("Test", profile.FirstName);
+        Assert.Equal("User", profile.LastName);
+        Assert.False(string.IsNullOrWhiteSpace(profile.Username));
+    }
+
+    [Fact]
+    public async Task UpdateMe_UpdatesNames()
+    {
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "profile-update@example.com",
+            "Password123!");
+        _client.UseBearerToken(user.AccessToken);
+
+        var response = await _client.PutAsJsonAsync("/api/users/me", new UpdateProfileCommand
+        {
+            FirstName = "Updated",
+            LastName = "Name",
+            ImageUrl = "https://cdn.example.com/avatar.png"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var profile = await response.Content.ReadFromJsonAsync<UserProfileResult>(JsonOptions);
+        Assert.NotNull(profile);
+        Assert.Equal("Updated", profile.FirstName);
+        Assert.Equal("Name", profile.LastName);
+        Assert.Equal("https://cdn.example.com/avatar.png", profile.ImageUrl);
+    }
+
+    [Fact]
+    public async Task ChangePassword_ThenLoginWithNewPassword_Succeeds()
+    {
+        const string email = "profile-password@example.com";
+        const string oldPassword = "Password123!";
+        const string newPassword = "NewPassword123!";
+
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(_factory, _client, email, oldPassword);
+        _client.UseBearerToken(user.AccessToken);
+
+        var changeResponse = await _client.PutAsJsonAsync("/api/users/me/password", new ChangePasswordCommand
+        {
+            CurrentPassword = oldPassword,
+            NewPassword = newPassword
+        });
+        Assert.Equal(HttpStatusCode.OK, changeResponse.StatusCode);
+
+        _client.UseBearerToken(null);
+        var login = await ApiTestHelpers.LoginAsync(_client, email, newPassword);
+        Assert.False(string.IsNullOrWhiteSpace(login.Token));
+        Assert.False(string.IsNullOrWhiteSpace(login.Username));
+    }
+
+    [Fact]
+    public async Task GetByUsername_DoesNotExposeEmail()
+    {
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "public-author@example.com",
+            "Password123!");
+        _client.UseBearerToken(user.AccessToken);
+
+        var me = await _client.GetFromJsonAsync<UserProfileResult>("/api/users/me", JsonOptions);
+        Assert.NotNull(me);
+        Assert.False(string.IsNullOrWhiteSpace(me.Username));
+
+        _client.UseBearerToken(null);
+        var response = await _client.GetAsync($"/api/users/by-username/{me.Username}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("@example.com", body, StringComparison.OrdinalIgnoreCase);
+
+        using var doc = JsonDocument.Parse(body);
+        Assert.False(doc.RootElement.TryGetProperty("email", out _));
+
+        var publicUser = JsonSerializer.Deserialize<PublicUserResult>(body, JsonOptions);
+        Assert.NotNull(publicUser);
+        Assert.Equal(me.Username, publicUser.Username);
+        Assert.Equal(user.Id, publicUser.Id);
+    }
+}

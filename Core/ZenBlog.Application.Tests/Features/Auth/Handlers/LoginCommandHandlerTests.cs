@@ -142,6 +142,7 @@ public class LoginCommandHandlerTests
         var data = Assert.IsType<ZenBlog.Application.Features.Auth.Results.LoginResult>(result.Data);
         Assert.Equal(user.Id, data.UserId);
         Assert.Equal(user.Email, data.Email);
+        Assert.Equal(user.UserName, data.Username);
         Assert.Equal(user.FirstName, data.FirstName);
         Assert.Equal(user.LastName, data.LastName);
         Assert.Equal(user.ImageUrl, data.ImageUrl);

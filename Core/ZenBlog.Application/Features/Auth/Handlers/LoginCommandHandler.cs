@@ -51,6 +51,7 @@ namespace ZenBlog.Application.Features.Auth.Handlers
                 new LoginResult(
                     user.Id,
                     user.Email!,
+                    user.UserName!,
                     user.FirstName,
                     user.LastName,
                     user.ImageUrl,

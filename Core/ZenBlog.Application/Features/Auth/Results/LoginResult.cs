@@ -3,6 +3,7 @@
     public record LoginResult(
         string UserId,
         string Email,
+        string Username,
         string FirstName,
         string LastName,
         string? ImageUrl,

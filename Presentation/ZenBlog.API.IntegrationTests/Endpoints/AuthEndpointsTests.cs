@@ -41,6 +41,7 @@ public class AuthEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("token", body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("refreshToken", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("username", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
