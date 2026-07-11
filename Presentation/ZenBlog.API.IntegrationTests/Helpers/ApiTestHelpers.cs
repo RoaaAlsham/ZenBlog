@@ -177,7 +177,6 @@ public static class ApiTestHelpers
             title,
             description = "Test description",
             coverImageUrl = "cover.png",
-            blogImageUrl = "blog.png",
             categoryId,
             userId = spoofedUserId ?? "should-be-overwritten"
         });

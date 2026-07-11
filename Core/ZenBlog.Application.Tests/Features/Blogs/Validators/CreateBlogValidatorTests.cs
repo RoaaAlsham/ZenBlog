@@ -65,7 +65,6 @@ public class CreateBlogValidatorTests
             Title = "My blog",
             Description = "My description",
             CoverImageUrl = "cover.png",
-            BlogImageUrl = "blog.png",
             CategoryId = Guid.NewGuid(),
             UserId = null!
         };
