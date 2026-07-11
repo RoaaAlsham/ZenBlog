@@ -14,7 +14,8 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         {
             var values = await repository.GetAllWithIncludesAsync(
     cancellationToken,
-    b => b.Category);
+    b => b.Category,
+    b => b.User);
             var blogs = mapper.Map<List<GetBlogsQueryResult>>(values);
             return BaseResult<List<GetBlogsQueryResult>>.Success(blogs);
         

@@ -16,7 +16,8 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             var blog = await repo.GetSingleWithIncludesAsync(
                 b => b.Id == request.Id,   // filter
                 cancellationToken,          // ct
-                b => b.Category             // includes
+                b => b.Category,
+                b => b.User
             );
 
             if (blog == null)

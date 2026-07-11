@@ -15,7 +15,8 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             var blogs = await repo.GetAllWithIncludesAsync(
     b => b.CategoryId == request.CategoryId,  // filter
     cancellationToken,                         // ct
-    b => b.Category                            // includes
+    b => b.Category,
+    b => b.User
 );
 
             return BaseResult<IEnumerable<GetBlogsQueryResult>>

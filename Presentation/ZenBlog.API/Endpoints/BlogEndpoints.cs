@@ -50,6 +50,12 @@ namespace ZenBlog.API.Endpoints
                 var response = await _mediator.Send(new GetBlogsByCategoryIdQuery(categoryId));
                 return response.ToHttpResult();
             });
+
+            blogs.MapGet("/user/{userId}", async (IMediator _mediator, string userId) =>
+            {
+                var response = await _mediator.Send(new GetBlogsByUserIdQuery(userId));
+                return response.ToHttpResult();
+            });
         }
     }
 }

@@ -1,5 +1,8 @@
 using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using ZenBlog.API.IntegrationTests.Helpers;
+using ZenBlog.Application.Features.Blogs.Results;
 
 namespace ZenBlog.API.IntegrationTests.Endpoints;
 
@@ -7,6 +10,39 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
 {
     private readonly ZenBlogApiFactory _factory = factory;
     private readonly HttpClient _client = factory.CreateClient();
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    [Fact]
+    public async Task GetBlogById_IncludesAuthorUsername_WithoutEmail()
+    {
+        var owner = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory, _client, "blog-author-link@example.com", "Password123!");
+        _client.UseBearerToken(owner.AccessToken);
+        var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Author Link Category");
+        var blogId = await ApiTestHelpers.CreateBlogAsync(_client, categoryId, "Author linked blog");
+
+        _client.UseBearerToken(null);
+        var response = await _client.GetAsync($"/api/blogs/{blogId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("@example.com", body, StringComparison.OrdinalIgnoreCase);
+
+        using var doc = JsonDocument.Parse(body);
+        Assert.True(doc.RootElement.TryGetProperty("user", out var userEl));
+        Assert.False(userEl.TryGetProperty("email", out _));
+        Assert.True(userEl.TryGetProperty("username", out var usernameEl));
+        Assert.False(string.IsNullOrWhiteSpace(usernameEl.GetString()));
+
+        var blog = JsonSerializer.Deserialize<GetBlogsQueryResult>(body, JsonOptions);
+        Assert.NotNull(blog);
+        Assert.NotNull(blog.User);
+        Assert.Equal(owner.Id, blog.User.Id);
+        Assert.False(string.IsNullOrWhiteSpace(blog.User.Username));
+    }
 
     [Fact]
     public async Task DeleteBlog_WithoutAuth_ReturnsUnauthorized()
