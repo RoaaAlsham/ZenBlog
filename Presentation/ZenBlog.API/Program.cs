@@ -84,6 +84,8 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+await app.SeedIdentityDataAsync();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
