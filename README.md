@@ -526,6 +526,12 @@ The API will be available at `https://localhost:7117`.
     "Issuer": "ZenBlogAPI",
     "Audience": "ZenBlogClient",
     "ExpiryMinutes": 60
+  },
+  "AdminSeed": {
+    "Enabled": false,
+    "Username": "admin",
+    "FirstName": "Site",
+    "LastName": "Admin"
   }
 }
 ```
@@ -537,6 +543,30 @@ dotnet user-secrets set "JwtSettings:Secret" "<a random string, at least 32 char
 ```
 
 Without this, the app throws `ArgumentNullException` at startup when building the signing key.
+
+### Admin seed (bootstrap Admin account)
+
+Registration never creates Admins. On startup the API can seed the `Admin` role and one bootstrap user from the `AdminSeed` section.
+
+`appsettings.json` leaves seeding **disabled**. Development enables it with `Enabled` and profile fields (`Username`, `FirstName`, `LastName`) in `appsettings.Development.json`. **`AdminSeed:Email` and `AdminSeed:Password` are secrets** — never commit them; set via User Secrets locally and environment variables in production:
+
+```bash
+dotnet user-secrets set "AdminSeed:Enabled" "true" --project Presentation/ZenBlog.API
+dotnet user-secrets set "AdminSeed:Email" "admin@example.com" --project Presentation/ZenBlog.API
+dotnet user-secrets set "AdminSeed:Username" "admin" --project Presentation/ZenBlog.API
+dotnet user-secrets set "AdminSeed:Password" "AdminPassword123!" --project Presentation/ZenBlog.API
+```
+
+In production use environment variables (`AdminSeed__Enabled`, `AdminSeed__Email`, `AdminSeed__Password`, …).
+
+Behavior:
+
+- Skipped when `AdminSeed:Enabled` is `false`, or when the environment is `Testing`.
+- If enabled but `Email` / `Password` are missing, startup fails fast with a clear error.
+- Idempotent: existing bootstrap users keep their password (restart does **not** reset it).
+- Roles are baked into the JWT at login — after a manual role change, log out and log in again.
+
+The password must satisfy Identity rules (8+ chars, uppercase, digit, special character), same as public registration.
 
 ---
 
