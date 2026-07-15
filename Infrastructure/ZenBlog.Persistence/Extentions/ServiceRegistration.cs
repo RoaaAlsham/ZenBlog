@@ -9,12 +9,15 @@ using ZenBlog.Domain.Entities;
 using ZenBlog.Persistence.Concrete;
 using ZenBlog.Persistence.Context;
 using ZenBlog.Persistence.Intercepters.ZenBlog.Persistence.Interceptors;
+using ZenBlog.Persistence.Options;
 
 namespace ZenBlog.Persistence.Extentions
 {
     public static class ServiceRegistration
     {
         public static void AddPersistenceServices(this IServiceCollection services, IConfiguration configuration) { 
+            services.Configure<AdminSeedOptions>(configuration.GetSection(AdminSeedOptions.SectionName));
+
             services.AddDbContext<AppDbContext>((serviceProvider, options) => {
                 var environment = serviceProvider.GetRequiredService<IHostEnvironment>();
                 if (environment.IsEnvironment("Testing"))
