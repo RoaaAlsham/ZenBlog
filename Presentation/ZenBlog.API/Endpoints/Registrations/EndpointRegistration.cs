@@ -9,6 +9,7 @@
             erb.RegisterUserEndpoints();
             erb.RegisterCommentEndpoints();
             erb.RegisterAuthEndpoints();
+            erb.RegisterSettingsEndpoints();
         }
     }
 }
