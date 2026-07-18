@@ -1,10 +1,8 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Identity;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Base;
+using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Domain.Entities;
@@ -15,7 +13,8 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         IRepository<Blog> repo,
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUser,
-        UserManager<AppUser> userManager) : IRequestHandler<RemoveBlogCommand, BaseResult<bool>>
+        UserManager<AppUser> userManager,
+        IImageStorageService imageStorage) : IRequestHandler<RemoveBlogCommand, BaseResult<bool>>
     {
         public async Task<BaseResult<bool>> Handle(RemoveBlogCommand request, CancellationToken cancellationToken)
         {
@@ -40,6 +39,11 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
                 {
                     return BaseResult<bool>.Forbidden("You are not authorized to delete this blog.");
                 }
+            }
+
+            if (!string.IsNullOrWhiteSpace(blog.CoverImagePublicId))
+            {
+                await imageStorage.DeleteAsync(blog.CoverImagePublicId, cancellationToken);
             }
 
             await repo.DeleteAsync(blog);

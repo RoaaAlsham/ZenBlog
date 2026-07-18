@@ -38,5 +38,6 @@ public class GetCurrentUserQueryHandler(
             Email: user.Email!,
             FirstName: user.FirstName,
             LastName: user.LastName,
-            ImageUrl: user.ImageUrl);
+            ImageUrl: user.ImageUrl,
+            ImagePublicId: user.ImagePublicId);
 }

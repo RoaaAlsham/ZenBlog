@@ -1,12 +1,15 @@
 using FluentValidation.TestHelper;
+using Microsoft.Extensions.Options;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Application.Features.Blogs.Validators;
+using ZenBlog.Application.Models;
 
 namespace ZenBlog.Application.Tests.Features.Blogs.Validators;
 
 public class CreateBlogValidatorTests
 {
-    private readonly CreateBlogValidator _validator = new();
+    private readonly CreateBlogValidator _validator = new(
+        Options.Create(new CloudinarySettings { CloudName = "demo" }));
 
     [Fact]
     public void TitleRule_FailsWhenEmpty_PassesWhenProvided()
@@ -59,12 +62,33 @@ public class CreateBlogValidatorTests
         result.ShouldNotHaveValidationErrorFor(x => x.UserId);
     }
 
+    [Fact]
+    public void CoverImage_RejectsNonCloudinaryUrl()
+    {
+        var command = BuildValidCommand();
+        command.CoverImageUrl = "https://cdn.example.com/cover.png";
+        command.CoverImagePublicId = "cover";
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor(x => x.CoverImageUrl);
+    }
+
+    [Fact]
+    public void CoverImage_AcceptsCloudinaryPair()
+    {
+        var command = BuildValidCommand();
+        command.CoverImageUrl = "https://res.cloudinary.com/demo/image/upload/v1/zenblog/covers/c.png";
+        command.CoverImagePublicId = "zenblog/covers/c";
+        var result = _validator.TestValidate(command);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
     private static CreateBlogCommand BuildValidCommand()
         => new()
         {
             Title = "My blog",
             Description = "My description",
-            CoverImageUrl = "cover.png",
+            CoverImageUrl = null,
+            CoverImagePublicId = null,
             CategoryId = Guid.NewGuid(),
             UserId = null!
         };

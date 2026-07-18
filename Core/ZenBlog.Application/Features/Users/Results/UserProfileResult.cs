@@ -6,4 +6,5 @@ public sealed record UserProfileResult(
     string Email,
     string FirstName,
     string LastName,
-    string? ImageUrl);
+    string? ImageUrl,
+    string? ImagePublicId);

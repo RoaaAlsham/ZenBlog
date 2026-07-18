@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Domain.Entities;
@@ -13,6 +14,7 @@ public class DeleteMyAccountCommandHandler(
     ICurrentUserService currentUser,
     IRepository<Comment> commentRepository,
     IRepository<Blog> blogRepository,
+    IImageStorageService imageStorage,
     IUnitOfWork unitOfWork)
     : IRequestHandler<DeleteMyAccountCommand, BaseResult<bool>>
 {
@@ -44,10 +46,16 @@ public class DeleteMyAccountCommandHandler(
             });
         }
 
+        if (!string.IsNullOrWhiteSpace(user.ImagePublicId))
+        {
+            await imageStorage.DeleteAsync(user.ImagePublicId, cancellationToken);
+        }
+
         await UserAccountHardDelete.PurgeContentAsync(
             user.Id,
             commentRepository,
             blogRepository,
+            imageStorage,
             cancellationToken);
         _ = await unitOfWork.SaveChangesAsync();
 

@@ -60,7 +60,8 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         {
             FirstName = "Updated",
             LastName = "Name",
-            ImageUrl = "https://cdn.example.com/avatar.png"
+            ImageUrl = null,
+            ImagePublicId = null
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -68,7 +69,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         Assert.NotNull(profile);
         Assert.Equal("Updated", profile.FirstName);
         Assert.Equal("Name", profile.LastName);
-        Assert.Equal("https://cdn.example.com/avatar.png", profile.ImageUrl);
+        Assert.Null(profile.ImageUrl);
     }
 
     [Fact]

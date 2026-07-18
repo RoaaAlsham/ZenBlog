@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Application.Features.Blogs.Handlers;
@@ -18,6 +19,7 @@ public class RemoveBlogCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var userManager = CreateUserManagerMock();
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
 
         var command = new RemoveBlogCommand(Guid.NewGuid());
         var blog = new Blog
@@ -49,7 +51,8 @@ public class RemoveBlogCommandHandlerTests
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            userManager.Object);
+            userManager.Object,
+            imageStorage.Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 

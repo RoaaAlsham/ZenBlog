@@ -5,6 +5,7 @@ using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Application.Features.Blogs.Results;
+using ZenBlog.Application.Features.Media;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Features.Blogs.Handlers
@@ -17,6 +18,8 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
     {
         public async Task<BaseResult<CreateBlogResult>> Handle(CreateBlogCommand request, CancellationToken cancellationToken)
         {
+            request.CoverImageUrl = CloudinaryImageRules.NormalizeOptional(request.CoverImageUrl);
+            request.CoverImagePublicId = CloudinaryImageRules.NormalizeOptional(request.CoverImagePublicId);
 
             var blog = mapper.Map<Blog>(request);
             // Ignore whatever UserId the client sent in the body - the owner of a new

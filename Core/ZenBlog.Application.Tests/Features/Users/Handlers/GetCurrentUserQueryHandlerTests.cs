@@ -70,6 +70,7 @@ public class GetCurrentUserQueryHandlerTests
         Assert.Equal(user.FirstName, result.Data.FirstName);
         Assert.Equal(user.LastName, result.Data.LastName);
         Assert.Equal(user.ImageUrl, result.Data.ImageUrl);
+        Assert.Equal(user.ImagePublicId, result.Data.ImagePublicId);
     }
 
     private static Mock<UserManager<AppUser>> CreateUserManagerMock()

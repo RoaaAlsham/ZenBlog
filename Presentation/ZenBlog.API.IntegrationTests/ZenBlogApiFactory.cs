@@ -26,7 +26,10 @@ public class ZenBlogApiFactory : WebApplicationFactory<Program>
                 ["JwtSettings:Secret"] = "integration-test-secret-key-32chars!",
                 ["JwtSettings:Issuer"] = "ZenBlogAPI",
                 ["JwtSettings:Audience"] = "ZenBlogClient",
-                ["JwtSettings:ExpiryMinutes"] = "60"
+                ["JwtSettings:ExpiryMinutes"] = "60",
+                ["CloudinarySettings:CloudName"] = "demo",
+                ["CloudinarySettings:ApiKey"] = "test-key",
+                ["CloudinarySettings:ApiSecret"] = "test-secret"
             });
         });
     }

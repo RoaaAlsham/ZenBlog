@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Users;
 using ZenBlog.Application.Features.Users.Commands;
@@ -20,6 +21,7 @@ public class DeleteUserCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var caller = CreateUser("admin-caller");
@@ -28,7 +30,7 @@ public class DeleteUserCommandHandlerTests
         userManager.Setup(x => x.FindByIdAsync(caller.Id)).ReturnsAsync(caller);
         userManager.Setup(x => x.GetRolesAsync(caller)).ReturnsAsync((IList<string>)["User"]);
 
-        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, unitOfWork);
+        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, imageStorage, unitOfWork);
         var result = await sut.Handle(new DeleteUserCommand("target"), CancellationToken.None);
 
         Assert.Equal(ResultStatus.Forbidden, result.Status);
@@ -45,6 +47,7 @@ public class DeleteUserCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var caller = CreateUser("admin-1");
@@ -55,7 +58,7 @@ public class DeleteUserCommandHandlerTests
             .Setup(x => x.GetRolesAsync(caller))
             .ReturnsAsync((IList<string>)[UserAccountHardDelete.AdminRoleName]);
 
-        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, unitOfWork);
+        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, imageStorage, unitOfWork);
         var result = await sut.Handle(new DeleteUserCommand(caller.Id), CancellationToken.None);
 
         Assert.Equal(ResultStatus.Forbidden, result.Status);
@@ -70,6 +73,7 @@ public class DeleteUserCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var caller = CreateUser("admin-1");
@@ -89,7 +93,7 @@ public class DeleteUserCommandHandlerTests
             .Setup(x => x.GetUsersInRoleAsync(UserAccountHardDelete.AdminRoleName))
             .ReturnsAsync(new List<AppUser> { target });
 
-        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, unitOfWork);
+        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, imageStorage, unitOfWork);
         var result = await sut.Handle(new DeleteUserCommand(target.Id), CancellationToken.None);
 
         Assert.Equal(ResultStatus.Forbidden, result.Status);
@@ -106,6 +110,7 @@ public class DeleteUserCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var caller = CreateUser("admin-1");
@@ -117,7 +122,7 @@ public class DeleteUserCommandHandlerTests
             .ReturnsAsync((IList<string>)[UserAccountHardDelete.AdminRoleName]);
         userManager.Setup(x => x.FindByIdAsync("missing")).ReturnsAsync((AppUser?)null);
 
-        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, unitOfWork);
+        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, imageStorage, unitOfWork);
         var result = await sut.Handle(new DeleteUserCommand("missing"), CancellationToken.None);
 
         Assert.Equal(ResultStatus.NotFound, result.Status);
@@ -130,6 +135,7 @@ public class DeleteUserCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Loose);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Loose);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Loose);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var caller = CreateUser("admin-1");
@@ -163,7 +169,7 @@ public class DeleteUserCommandHandlerTests
 
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(false);
 
-        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, unitOfWork);
+        var sut = CreateSut(userManager, currentUser, commentRepo, blogRepo, imageStorage, unitOfWork);
         var result = await sut.Handle(new DeleteUserCommand(target.Id), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -176,12 +182,14 @@ public class DeleteUserCommandHandlerTests
         Mock<ICurrentUserService> currentUser,
         Mock<IRepository<Comment>> commentRepo,
         Mock<IRepository<Blog>> blogRepo,
+        Mock<IImageStorageService> imageStorage,
         Mock<IUnitOfWork> unitOfWork) =>
         new(
             userManager.Object,
             currentUser.Object,
             commentRepo.Object,
             blogRepo.Object,
+            imageStorage.Object,
             unitOfWork.Object);
 
     private static AppUser CreateUser(string id) => new()

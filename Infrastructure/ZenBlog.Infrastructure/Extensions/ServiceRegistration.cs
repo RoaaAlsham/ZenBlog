@@ -5,8 +5,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Models;
 using ZenBlog.Infrastructure.Identity;
+using ZenBlog.Infrastructure.Media;
 
 namespace ZenBlog.Infrastructure.Extensions
 {
@@ -16,12 +18,14 @@ namespace ZenBlog.Infrastructure.Extensions
         {
             var jwtSettingsSection = configuration.GetSection("JwtSettings");
             services.Configure<JwtSettings>(jwtSettingsSection);
+            services.Configure<CloudinarySettings>(configuration.GetSection(CloudinarySettings.SectionName));
 
             services.AddHttpContextAccessor();
 
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+            services.AddScoped<IImageStorageService, CloudinaryImageStorageService>();
 
             services.AddAuthentication(options =>
             {

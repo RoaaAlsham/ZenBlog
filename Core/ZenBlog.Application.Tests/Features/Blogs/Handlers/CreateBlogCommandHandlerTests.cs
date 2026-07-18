@@ -24,7 +24,8 @@ public class CreateBlogCommandHandlerTests
         {
             Title = "Security test title",
             Description = "Security test description",
-            CoverImageUrl = "cover.png",
+            CoverImageUrl = null,
+            CoverImagePublicId = null,
             CategoryId = Guid.NewGuid(),
             UserId = commandUserId
         };

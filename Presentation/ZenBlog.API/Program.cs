@@ -5,12 +5,24 @@ using ZenBlog.API.Endpoints.Registrations;
 using Scalar.AspNetCore;
 using ZenBlog.API.CustomMiddlewares;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Http.Features;
+using ZenBlog.Application.Features.Media;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Make JSON property names case-insensitive (Next.js client sends camelCase).
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNameCaseInsensitive = true);
+
+// Multipart hard limit slightly above the 5 MB application validation limit.
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = ImageUploadLimits.MultipartHardLimitBytes;
+});
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = ImageUploadLimits.MultipartHardLimitBytes;
+});
 
 // ---------------------------------------------------------------------------
 // Verify Backend CORS Configuration (required for local Next.js testing)

@@ -10,6 +10,7 @@
             erb.RegisterCommentEndpoints();
             erb.RegisterAuthEndpoints();
             erb.RegisterSettingsEndpoints();
+            erb.RegisterMediaEndpoints();
         }
     }
 }

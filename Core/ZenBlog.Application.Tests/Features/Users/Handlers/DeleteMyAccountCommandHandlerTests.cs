@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Handlers;
@@ -19,6 +20,7 @@ public class DeleteMyAccountCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var user = CreateUser("u1");
@@ -33,6 +35,7 @@ public class DeleteMyAccountCommandHandlerTests
             currentUser.Object,
             commentRepo.Object,
             blogRepo.Object,
+            imageStorage.Object,
             unitOfWork.Object);
 
         var result = await sut.Handle(
@@ -52,16 +55,19 @@ public class DeleteMyAccountCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Loose);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Loose);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var user = CreateUser("u1");
+        user.ImagePublicId = "zenblog/profiles/me";
         var blog = new Blog
         {
             Id = Guid.NewGuid(),
             Title = "Post",
             Description = "Desc",
             CategoryId = Guid.NewGuid(),
-            UserId = user.Id
+            UserId = user.Id,
+            CoverImagePublicId = "zenblog/covers/post"
         };
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
@@ -84,6 +90,13 @@ public class DeleteMyAccountCommandHandlerTests
                 It.IsAny<Expression<Func<Blog, object>>[]>()))
             .ReturnsAsync([blog]);
 
+        imageStorage
+            .Setup(x => x.DeleteAsync("zenblog/profiles/me", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        imageStorage
+            .Setup(x => x.DeleteAsync("zenblog/covers/post", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
 
         var sut = new DeleteMyAccountCommandHandler(
@@ -91,6 +104,7 @@ public class DeleteMyAccountCommandHandlerTests
             currentUser.Object,
             commentRepo.Object,
             blogRepo.Object,
+            imageStorage.Object,
             unitOfWork.Object);
 
         var result = await sut.Handle(
@@ -102,6 +116,8 @@ public class DeleteMyAccountCommandHandlerTests
         blogRepo.Verify(x => x.DeleteAsync(blog), Times.Once);
         unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Once);
         userManager.Verify(x => x.DeleteAsync(user), Times.Once);
+        imageStorage.Verify(x => x.DeleteAsync("zenblog/profiles/me", It.IsAny<CancellationToken>()), Times.Once);
+        imageStorage.Verify(x => x.DeleteAsync("zenblog/covers/post", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -111,6 +127,7 @@ public class DeleteMyAccountCommandHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(false);
@@ -121,6 +138,7 @@ public class DeleteMyAccountCommandHandlerTests
             currentUser.Object,
             commentRepo.Object,
             blogRepo.Object,
+            imageStorage.Object,
             unitOfWork.Object);
 
         var result = await sut.Handle(
