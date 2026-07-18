@@ -21,10 +21,23 @@ namespace ZenBlog.Persistence.Context
 
         public DbSet<Comment> Comments { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<SiteSettings> SiteSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);// required to run Identity's config first
+
+            modelBuilder.Entity<SiteSettings>(entity =>
+            {
+                entity.HasData(new SiteSettings
+                {
+                    Id = ZenBlog.Domain.Entities.SiteSettings.SingletonId,
+                    AllowRegistrations = false,
+                    CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                });
+            });
+
             modelBuilder.Entity<Comment>(entity =>
             {
                 entity.HasOne(c => c.ParentComment)
