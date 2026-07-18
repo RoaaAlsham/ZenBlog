@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using ZenBlog.API.Extensions;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Queries;
@@ -35,6 +36,12 @@ namespace ZenBlog.API.Endpoints
                 return result.ToHttpResult();
             }).RequireAuthorization();
 
+            users.MapDelete("/me", async (IMediator mediator, [FromBody] DeleteMyAccountCommand command) =>
+            {
+                var result = await mediator.Send(command);
+                return result.ToHttpNoContentResult();
+            }).RequireAuthorization();
+
             users.MapGet("/by-username/{username}", async (IMediator mediator, string username) =>
             {
                 var result = await mediator.Send(new GetPublicUserByUsernameQuery(username));
@@ -45,7 +52,13 @@ namespace ZenBlog.API.Endpoints
             {
                 var result = await mediator.Send(new GetAllUsersQuery());
                 return result.ToHttpResult();
-            }).RequireAuthorization();
+            }).RequireAuthorization(policy => policy.RequireRole("Admin"));
+
+            users.MapDelete("/{id}", async (IMediator mediator, string id) =>
+            {
+                var result = await mediator.Send(new DeleteUserCommand(id));
+                return result.ToHttpNoContentResult();
+            }).RequireAuthorization(policy => policy.RequireRole("Admin"));
         }
     }
 }

@@ -123,4 +123,75 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         Assert.Equal(me.Username, publicUser.Username);
         Assert.Equal(user.Id, publicUser.Id);
     }
+
+    [Fact]
+    public async Task DeleteMe_Unauthenticated_ReturnsUnauthorized()
+    {
+        _client.UseBearerToken(null);
+        var response = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, "/api/users/me")
+        {
+            Content = JsonContent.Create(new DeleteMyAccountCommand { CurrentPassword = "Password123!" })
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteUser_Unauthenticated_ReturnsUnauthorized()
+    {
+        _client.UseBearerToken(null);
+        var response = await _client.DeleteAsync($"/api/users/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteUser_NonAdmin_ReturnsForbidden()
+    {
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "delete-nonadmin@example.com",
+            "Password123!");
+        _client.UseBearerToken(user.AccessToken);
+
+        var response = await _client.DeleteAsync($"/api/users/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetUsers_NonAdmin_ReturnsForbidden()
+    {
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "list-nonadmin@example.com",
+            "Password123!");
+        _client.UseBearerToken(user.AccessToken);
+
+        var response = await _client.GetAsync("/api/users/");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteMe_WithCorrectPassword_RemovesAccount()
+    {
+        const string email = "self-delete@example.com";
+        const string password = "Password123!";
+
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(_factory, _client, email, password);
+        _client.UseBearerToken(user.AccessToken);
+
+        var response = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, "/api/users/me")
+        {
+            Content = JsonContent.Create(new DeleteMyAccountCommand { CurrentPassword = password })
+        });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        _client.UseBearerToken(null);
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email,
+            password
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
+    }
 }
