@@ -21,6 +21,13 @@ namespace ZenBlog.API.Endpoints
                 var response = await mediator.Send(command);
                 return response.ToHttpResult();
             }).RequireRateLimiting("refresh-per-ip");
+
+            // Body carries the refresh token; no Bearer required so expired access tokens can still log out.
+            auth.MapPost("/logout", async (IMediator mediator, LogoutCommand command) =>
+            {
+                var response = await mediator.Send(command);
+                return response.ToHttpResult();
+            });
         }
     }
 }

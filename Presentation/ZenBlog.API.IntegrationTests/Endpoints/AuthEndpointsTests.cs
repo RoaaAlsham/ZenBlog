@@ -79,4 +79,15 @@ public class AuthEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Logout_WithUnknownToken_ReturnsSuccess()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/logout", new LogoutCommand
+        {
+            RefreshToken = "not-a-real-refresh-token"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }

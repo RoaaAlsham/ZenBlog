@@ -28,9 +28,20 @@ public class RefreshTokenCommandHandler(
             rt => rt.TokenHash == incomingHash,
             cancellationToken);
 
-        if (existingToken is null ||
-            existingToken.RevokedAtUtc is not null ||
-            existingToken.ExpiresAtUtc <= DateTime.UtcNow)
+        if (existingToken is null)
+        {
+            return BaseResult<RefreshTokenResult>.Unauthorized("Invalid refresh token.");
+        }
+
+        // Reuse detection: a revoked token being presented again usually means a thief
+        // already rotated it. Kill the whole refresh-token family for that user.
+        if (existingToken.RevokedAtUtc is not null)
+        {
+            await RevokeAllTokensForUserAsync(existingToken.UserId, cancellationToken);
+            return BaseResult<RefreshTokenResult>.Unauthorized("Invalid refresh token.");
+        }
+
+        if (existingToken.ExpiresAtUtc <= DateTime.UtcNow)
         {
             return BaseResult<RefreshTokenResult>.Unauthorized("Invalid refresh token.");
         }
@@ -42,7 +53,8 @@ public class RefreshTokenCommandHandler(
         }
 
         var roles = await userManager.GetRolesAsync(user);
-        var (accessToken, accessTokenExpiresAtUtc) = tokenGenerator.GenerateToken(user, roles, 15);
+        // Expiry comes from JwtSettings via the generator default (not a hardcoded minutes value).
+        var (accessToken, accessTokenExpiresAtUtc) = tokenGenerator.GenerateToken(user, roles);
         var (newRefreshToken, newRefreshTokenHash, newRefreshTokenExpiresAtUtc) = refreshTokenService.GenerateRefreshToken(7);
 
         existingToken.RevokedAtUtc = DateTime.UtcNow;
@@ -64,5 +76,24 @@ public class RefreshTokenCommandHandler(
 
         return BaseResult<RefreshTokenResult>.Success(
             new RefreshTokenResult(accessToken, accessTokenExpiresAtUtc, newRefreshToken, newRefreshTokenExpiresAtUtc));
+    }
+
+    private async Task RevokeAllTokensForUserAsync(string userId, CancellationToken cancellationToken)
+    {
+        var tokens = await refreshTokenRepository.GetAllWithIncludesAsync(
+            rt => rt.UserId == userId && rt.RevokedAtUtc == null,
+            cancellationToken);
+
+        var now = DateTime.UtcNow;
+        foreach (var token in tokens)
+        {
+            token.RevokedAtUtc = now;
+            await refreshTokenRepository.UpdateAsync(token);
+        }
+
+        if (tokens.Count > 0)
+        {
+            await unitOfWork.SaveChangesAsync();
+        }
     }
 }

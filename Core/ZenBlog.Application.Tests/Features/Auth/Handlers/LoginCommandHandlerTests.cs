@@ -113,7 +113,7 @@ public class LoginCommandHandlerTests
             .Setup(x => x.GetRolesAsync(user))
             .ReturnsAsync((IList<string>)roles);
         tokenGenerator
-            .Setup(x => x.GenerateToken(user, roles, 15))
+            .Setup(x => x.GenerateToken(user, roles, null))
             .Returns((expectedToken, expectedExpiry));
         refreshTokenService
             .Setup(x => x.GenerateRefreshToken(7))

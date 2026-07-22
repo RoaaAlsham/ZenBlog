@@ -33,7 +33,8 @@ namespace ZenBlog.Application.Features.Auth.Handlers
             }
 
             var roles = await userManager.GetRolesAsync(user);
-            var (token, expiresAtUtc) = tokenGenerator.GenerateToken(user, roles, 15);
+            // Expiry comes from JwtSettings via the generator default (not a hardcoded minutes value).
+            var (token, expiresAtUtc) = tokenGenerator.GenerateToken(user, roles);
             var (refreshToken, refreshTokenHash, refreshTokenExpiresAtUtc) = refreshTokenService.GenerateRefreshToken(7);
             await refreshTokenRepository.CreateAsync(new RefreshToken
             {

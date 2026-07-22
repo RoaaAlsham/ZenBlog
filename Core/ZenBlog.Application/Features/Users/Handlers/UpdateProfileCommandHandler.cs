@@ -35,12 +35,6 @@ public class UpdateProfileCommandHandler(
         var newPublicId = CloudinaryImageRules.NormalizeOptional(request.ImagePublicId);
         var oldPublicId = user.ImagePublicId;
 
-        if (!string.Equals(oldPublicId, newPublicId, StringComparison.Ordinal)
-            && !string.IsNullOrWhiteSpace(oldPublicId))
-        {
-            await imageStorage.DeleteAsync(oldPublicId, cancellationToken);
-        }
-
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.ImageUrl = newUrl;
@@ -51,6 +45,13 @@ public class UpdateProfileCommandHandler(
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
             return BaseResult<UserProfileResult>.Failure(errors);
+        }
+
+        // Delete the previous Cloudinary asset only after Identity update succeeds.
+        if (!string.Equals(oldPublicId, newPublicId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(oldPublicId))
+        {
+            await imageStorage.DeleteAsync(oldPublicId, cancellationToken);
         }
 
         return BaseResult<UserProfileResult>.Success(GetCurrentUserQueryHandler.ToProfileResult(user));

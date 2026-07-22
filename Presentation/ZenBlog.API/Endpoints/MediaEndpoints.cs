@@ -35,6 +35,7 @@ public static class MediaEndpoints
                 return result.ToHttpResult();
             })
             .RequireAuthorization()
+            .RequireRateLimiting("media-per-ip")
             .DisableAntiforgery()
             .WithMetadata(new RequestSizeLimitAttribute(ImageUploadLimits.MultipartHardLimitBytes))
             .Accepts<IFormFile>("multipart/form-data");

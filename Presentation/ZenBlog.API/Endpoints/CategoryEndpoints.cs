@@ -22,7 +22,7 @@ namespace ZenBlog.API.Endpoints
                 return response.IsSuccess
                     ? Results.Created($"/categories/{response.Data}", null)
                     : response.ToHttpResult();
-            }).RequireAuthorization();
+            }).RequireAuthorization(policy => policy.RequireRole("Admin"));
 
             categories.MapGet("/{id}", async (IMediator _mediator, Guid id) =>
             {
@@ -38,7 +38,7 @@ namespace ZenBlog.API.Endpoints
                 }
                 var response = await _mediator.Send(command);
                 return response.ToHttpNoContentResult();
-            }).RequireAuthorization();
+            }).RequireAuthorization(policy => policy.RequireRole("Admin"));
 
             categories.MapDelete("/{id:guid}", async (IMediator _mediator, Guid id) =>
             {

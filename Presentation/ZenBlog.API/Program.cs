@@ -60,6 +60,8 @@ builder.Services.AddRateLimiter(options =>
     {
         options.AddPolicy("login-per-ip", _ => RateLimitPartition.GetNoLimiter("testing"));
         options.AddPolicy("refresh-per-ip", _ => RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("register-per-ip", _ => RateLimitPartition.GetNoLimiter("testing"));
+        options.AddPolicy("media-per-ip", _ => RateLimitPartition.GetNoLimiter("testing"));
     }
     else
     {
@@ -87,6 +89,34 @@ builder.Services.AddRateLimiter(options =>
                 {
                     PermitLimit = 10,
                     Window = TimeSpan.FromMinutes(5),
+                    QueueLimit = 0,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                });
+        });
+        // Registration spam / account-farming control.
+        options.AddPolicy("register-per-ip", context =>
+        {
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ipAddress,
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 3,
+                    Window = TimeSpan.FromMinutes(10),
+                    QueueLimit = 0,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                });
+        });
+        // Authenticated upload flood would burn Cloudinary quota.
+        options.AddPolicy("media-per-ip", context =>
+        {
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: ipAddress,
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 20,
+                    Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0,
                     QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                 });

@@ -59,7 +59,7 @@ public class RefreshTokenCommandHandlerTests
             .Setup(x => x.GetRolesAsync(user))
             .ReturnsAsync((IList<string>)roles);
         tokenGenerator
-            .Setup(x => x.GenerateToken(user, roles, 15))
+            .Setup(x => x.GenerateToken(user, roles, null))
             .Returns((accessToken, accessExpiry));
         refreshTokenService
             .Setup(x => x.GenerateRefreshToken(7))
@@ -132,7 +132,7 @@ public class RefreshTokenCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_RevokedToken_ReturnsFailureAndDoesNotRotate()
+    public async Task Handle_RevokedToken_RevokesFamilyAndReturnsUnauthorized()
     {
         var userManager = CreateUserManagerMock();
         var tokenGenerator = new Mock<IJwtTokenGenerator>(MockBehavior.Strict);
@@ -142,13 +142,22 @@ public class RefreshTokenCommandHandlerTests
 
         var incomingRefreshToken = "incoming-raw-token";
         var incomingRefreshTokenHash = "incoming-hash";
+        var userId = "u1";
         var revokedToken = new RefreshToken
         {
             Id = Guid.NewGuid(),
-            UserId = "u1",
+            UserId = userId,
             TokenHash = incomingRefreshTokenHash,
             ExpiresAtUtc = DateTime.UtcNow.AddDays(1),
             RevokedAtUtc = DateTime.UtcNow.AddMinutes(-5)
+        };
+        var activeSibling = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TokenHash = "sibling-hash",
+            ExpiresAtUtc = DateTime.UtcNow.AddDays(7),
+            RevokedAtUtc = null
         };
 
         refreshTokenService
@@ -157,6 +166,18 @@ public class RefreshTokenCommandHandlerTests
         refreshTokenRepository
             .Setup(x => x.GetSingleAsync(It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(revokedToken);
+        refreshTokenRepository
+            .Setup(x => x.GetAllWithIncludesAsync(
+                It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, object>>[]>()))
+            .ReturnsAsync([activeSibling]);
+        refreshTokenRepository
+            .Setup(x => x.UpdateAsync(activeSibling))
+            .Returns(Task.CompletedTask);
+        unitOfWork
+            .Setup(x => x.SaveChangesAsync())
+            .ReturnsAsync(true);
 
         var sut = new RefreshTokenCommandHandler(
             userManager.Object,
@@ -169,10 +190,9 @@ public class RefreshTokenCommandHandlerTests
 
         Assert.True(result.IsFailure);
         Assert.Equal("Invalid refresh token.", Assert.Single(result.Errors).ErrorMessage);
-
-        refreshTokenRepository.Verify(x => x.UpdateAsync(It.IsAny<RefreshToken>()), Times.Never);
+        Assert.NotNull(activeSibling.RevokedAtUtc);
         refreshTokenRepository.Verify(x => x.CreateAsync(It.IsAny<RefreshToken>()), Times.Never);
-        unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Never);
+        unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Once);
     }
 
     private static Mock<UserManager<AppUser>> CreateUserManagerMock()

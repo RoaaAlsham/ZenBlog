@@ -1,8 +1,10 @@
 ﻿using FluentValidation;
+using Microsoft.Extensions.Logging;
 using ZenBlog.Application.Base;
+
 namespace ZenBlog.API.CustomMiddlewares
 {
-    public class CustomExceptionHandlingMiddleware(RequestDelegate next)
+    public class CustomExceptionHandlingMiddleware(RequestDelegate next, ILogger<CustomExceptionHandlingMiddleware> logger)
     {
         public async Task InvokeAsync(HttpContext context)
         {
@@ -38,10 +40,13 @@ namespace ZenBlog.API.CustomMiddlewares
             }
             catch (Exception ex)
             {
+                // Log full details server-side; never leak exception messages to clients.
+                logger.LogError(ex, "Unhandled exception while processing {Method} {Path}",
+                    context.Request.Method, context.Request.Path);
+
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 context.Response.ContentType = "application/json";
-               
-                var response = BaseResult<object>.Failure("Unexpected Error: "+ex.Message);
+                var response = BaseResult<object>.Failure("An unexpected error occurred.");
                 await context.Response.WriteAsJsonAsync(response);
             }
         }

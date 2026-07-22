@@ -16,7 +16,7 @@ namespace ZenBlog.API.Endpoints
             {
                 var result = await mediator.Send(command);
                 return result.ToHttpResult();
-            });
+            }).RequireRateLimiting("register-per-ip");
 
             users.MapGet("/me", async (IMediator mediator) =>
             {

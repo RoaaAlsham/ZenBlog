@@ -7,7 +7,6 @@ using ZenBlog.Application.Features.Auth.Commands;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Auth.Results;
 using ZenBlog.Application.Features.Blogs.Results;
-using ZenBlog.Application.Features.Categories.Commands;
 using ZenBlog.Domain.Entities;
 using ZenBlog.Persistence.Context;
 
@@ -84,7 +83,7 @@ public static class ApiTestHelpers
         var user = await userManager.FindByIdAsync(userId)
             ?? throw new InvalidOperationException($"User '{userId}' was not found.");
         var roles = await userManager.GetRolesAsync(user);
-        return tokenGenerator.GenerateToken(user, roles, 15).Token;
+        return tokenGenerator.GenerateToken(user, roles).Token;
     }
 
     public static async Task<RegisteredUser> RegisterAndLoginAsync(
@@ -154,15 +153,13 @@ public static class ApiTestHelpers
 
     public static async Task<Guid> CreateCategoryAsync(HttpClient client, ZenBlogApiFactory factory, string categoryName)
     {
-        var response = await client.PostAsJsonAsync("/api/categories", new CreateCategoryCommand
-        {
-            CategoryName = categoryName
-        });
-        response.EnsureSuccessStatusCode();
-
+        // Seed via DB so tests are not coupled to category write authz (Admin-only API).
+        _ = client;
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var category = db.Categories.Single(c => c.CategoryName == categoryName);
+        var category = new Category { CategoryName = categoryName };
+        db.Categories.Add(category);
+        await db.SaveChangesAsync();
         return category.Id;
     }
 
