@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
@@ -13,7 +12,7 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         IRepository<Blog> repo,
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUser,
-        UserManager<AppUser> userManager,
+        IRoleChecker roleChecker,
         IImageStorageService imageStorage) : IRequestHandler<RemoveBlogCommand, BaseResult<bool>>
     {
         public async Task<BaseResult<bool>> Handle(RemoveBlogCommand request, CancellationToken cancellationToken)
@@ -32,23 +31,29 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             var isOwner = blog.UserId == currentUser.UserId;
             if (!isOwner)
             {
-                var caller = await userManager.FindByIdAsync(currentUser.UserId);
-                var roles = caller is null ? [] : await userManager.GetRolesAsync(caller);
-                var isAdmin = roles.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase));
-                if (!isAdmin)
+                if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
                 {
                     return BaseResult<bool>.Forbidden("You are not authorized to delete this blog.");
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(blog.CoverImagePublicId))
-            {
-                await imageStorage.DeleteAsync(blog.CoverImagePublicId, cancellationToken);
-            }
+            var coverPublicId = blog.CoverImagePublicId;
 
             await repo.DeleteAsync(blog);
             var saved = await unitOfWork.SaveChangesAsync();
-            return saved ? BaseResult<bool>.Success(true) : BaseResult<bool>.Failure("Failed to delete the blog.");
+            if (!saved)
+            {
+                return BaseResult<bool>.Failure("Failed to delete the blog.");
+            }
+
+            // Delete Cloudinary asset only after DB commit so a failed save
+            // cannot leave the cover image gone while the blog row remains.
+            if (!string.IsNullOrWhiteSpace(coverPublicId))
+            {
+                await imageStorage.DeleteAsync(coverPublicId, cancellationToken);
+            }
+
+            return BaseResult<bool>.Success(true);
         }
     }
 }

@@ -50,21 +50,11 @@ public class CreateCommentCommandValidationTests
         validResult.ShouldNotHaveValidationErrorFor(x => x.BlogId);
     }
 
-    [Fact]
-    public void UserId_IsNotRequired_BecauseOwnershipComesFromJwt()
-    {
-        var command = BuildValidCommand();
-        command.UserId = string.Empty;
-        var result = _validator.TestValidate(command);
-        result.ShouldNotHaveValidationErrorFor(x => x.UserId);
-    }
-
     private static CreateCommentCommand BuildValidCommand()
         => new()
         {
             Body = "Base comment",
             BlogId = Guid.NewGuid(),
-            UserId = null!,
             ParentCommentId = null
         };
 }

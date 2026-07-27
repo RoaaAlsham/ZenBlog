@@ -54,15 +54,6 @@ public class CreateBlogValidatorTests
     }
 
     [Fact]
-    public void UserId_IsNotRequired_BecauseOwnershipComesFromJwt()
-    {
-        var command = BuildValidCommand();
-        command.UserId = string.Empty;
-        var result = _validator.TestValidate(command);
-        result.ShouldNotHaveValidationErrorFor(x => x.UserId);
-    }
-
-    [Fact]
     public void CoverImage_RejectsNonCloudinaryUrl()
     {
         var command = BuildValidCommand();
@@ -89,7 +80,6 @@ public class CreateBlogValidatorTests
             Description = "My description",
             CoverImageUrl = null,
             CoverImagePublicId = null,
-            CategoryId = Guid.NewGuid(),
-            UserId = null!
+            CategoryId = Guid.NewGuid()
         };
 }

@@ -12,7 +12,7 @@ namespace ZenBlog.Application.Tests.Features.Comments.Handlers;
 public class CreateCommentCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_AlwaysUsesAuthenticatedUserId_InsteadOfCommandUserId()
+    public async Task Handle_AlwaysUsesAuthenticatedUserId_FromJwt()
     {
         var repository = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
@@ -20,14 +20,12 @@ public class CreateCommentCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
 
-        var commandUserId = "payload-user-id";
         var authenticatedUserId = "jwt-user-id";
         var command = new CreateCommentCommand
         {
             Body = "Security comment body",
             BlogId = Guid.NewGuid(),
-            ParentCommentId = Guid.NewGuid(),
-            UserId = commandUserId
+            ParentCommentId = Guid.NewGuid()
         };
 
         var mappedComment = new Comment
@@ -36,7 +34,7 @@ public class CreateCommentCommandHandlerTests
             Body = command.Body,
             BlogId = command.BlogId,
             ParentCommentId = command.ParentCommentId,
-            UserId = commandUserId
+            UserId = "mapper-placeholder"
         };
 
         Comment? createdEntity = null;
@@ -92,7 +90,6 @@ public class CreateCommentCommandHandlerTests
 
         var persisted = Assert.IsType<Comment>(createdEntity);
         Assert.Equal(authenticatedUserId, persisted.UserId);
-        Assert.NotEqual(commandUserId, persisted.UserId);
     }
 
     [Fact]
@@ -107,8 +104,7 @@ public class CreateCommentCommandHandlerTests
         var command = new CreateCommentCommand
         {
             Body = "Orphan comment",
-            BlogId = Guid.NewGuid(),
-            UserId = "ignored"
+            BlogId = Guid.NewGuid()
         };
 
         blogRepository
@@ -143,8 +139,7 @@ public class CreateCommentCommandHandlerTests
         {
             Body = "Cross-blog reply",
             BlogId = blogId,
-            ParentCommentId = parentId,
-            UserId = "ignored"
+            ParentCommentId = parentId
         };
 
         blogRepository

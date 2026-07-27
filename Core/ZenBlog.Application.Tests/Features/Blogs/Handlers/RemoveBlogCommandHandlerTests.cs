@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
@@ -18,7 +17,7 @@ public class RemoveBlogCommandHandlerTests
         var repository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
 
         var command = new RemoveBlogCommand(Guid.NewGuid());
@@ -30,28 +29,22 @@ public class RemoveBlogCommandHandlerTests
             CategoryId = Guid.NewGuid(),
             UserId = "blog-owner-id"
         };
-        var caller = new AppUser
-        {
-            Id = "different-user-id",
-            Email = "caller@example.com",
-            UserName = "caller@example.com",
-            FirstName = "Caller",
-            LastName = "User"
-        };
+        var callerId = "different-user-id";
 
         repository
             .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(blog);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
-        currentUser.SetupGet(x => x.UserId).Returns(caller.Id);
-        userManager.Setup(x => x.FindByIdAsync(caller.Id)).ReturnsAsync(caller);
-        userManager.Setup(x => x.GetRolesAsync(caller)).ReturnsAsync((IList<string>)new List<string> { "User" });
+        currentUser.SetupGet(x => x.UserId).Returns(callerId);
+        roleChecker
+            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         var sut = new RemoveBlogCommandHandler(
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            userManager.Object,
+            roleChecker.Object,
             imageStorage.Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
@@ -63,18 +56,94 @@ public class RemoveBlogCommandHandlerTests
         unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
+    [Fact]
+    public async Task Handle_SaveFails_DoesNotDeleteCloudinaryAsset()
     {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
+        var repository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
+        var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
+
+        var ownerId = "owner-id";
+        var command = new RemoveBlogCommand(Guid.NewGuid());
+        var blog = new Blog
+        {
+            Id = command.Id,
+            Title = "Title",
+            Description = "Description",
+            CategoryId = Guid.NewGuid(),
+            UserId = ownerId,
+            CoverImagePublicId = "zenblog/covers/x"
+        };
+
+        repository
+            .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(blog);
+        currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
+        currentUser.SetupGet(x => x.UserId).Returns(ownerId);
+        repository.Setup(x => x.DeleteAsync(blog)).Returns(Task.CompletedTask);
+        unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(false);
+
+        var sut = new RemoveBlogCommandHandler(
+            repository.Object,
+            unitOfWork.Object,
+            currentUser.Object,
+            roleChecker.Object,
+            imageStorage.Object);
+
+        var result = await sut.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        imageStorage.Verify(
+            x => x.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_SaveSucceeds_DeletesCloudinaryAssetAfterCommit()
+    {
+        var repository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
+        var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
+        var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
+        var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
+
+        var ownerId = "owner-id";
+        var command = new RemoveBlogCommand(Guid.NewGuid());
+        var blog = new Blog
+        {
+            Id = command.Id,
+            Title = "Title",
+            Description = "Description",
+            CategoryId = Guid.NewGuid(),
+            UserId = ownerId,
+            CoverImagePublicId = "zenblog/covers/x"
+        };
+
+        repository
+            .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(blog);
+        currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
+        currentUser.SetupGet(x => x.UserId).Returns(ownerId);
+        repository.Setup(x => x.DeleteAsync(blog)).Returns(Task.CompletedTask);
+        unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
+        imageStorage
+            .Setup(x => x.DeleteAsync("zenblog/covers/x", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var sut = new RemoveBlogCommandHandler(
+            repository.Object,
+            unitOfWork.Object,
+            currentUser.Object,
+            roleChecker.Object,
+            imageStorage.Object);
+
+        var result = await sut.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        imageStorage.Verify(
+            x => x.DeleteAsync("zenblog/covers/x", It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 }

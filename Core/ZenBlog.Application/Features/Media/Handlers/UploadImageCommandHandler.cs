@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
@@ -9,7 +10,8 @@ namespace ZenBlog.Application.Features.Media.Handlers;
 
 public sealed class UploadImageCommandHandler(
     IImageStorageService imageStorage,
-    ICurrentUserService currentUser)
+    ICurrentUserService currentUser,
+    ILogger<UploadImageCommandHandler> logger)
     : IRequestHandler<UploadImageCommand, BaseResult<UploadImageResult>>
 {
     public async Task<BaseResult<UploadImageResult>> Handle(
@@ -35,7 +37,8 @@ public sealed class UploadImageCommandHandler(
         }
         catch (Exception ex)
         {
-            return BaseResult<UploadImageResult>.Failure($"Image upload failed: {ex.Message}");
+            logger.LogError(ex, "Image upload failed for purpose {Purpose}", request.Purpose);
+            return BaseResult<UploadImageResult>.Failure("Image upload failed.");
         }
     }
 }

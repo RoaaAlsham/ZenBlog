@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
@@ -18,7 +17,7 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         IUnitOfWork uow,
         IImageStorageService imageStorage,
         ICurrentUserService currentUser,
-        UserManager<AppUser> userManager)
+        IRoleChecker roleChecker)
         : IRequestHandler<UpdateBlogCommand, BaseResult<GetBlogsQueryResult>>
     {
         public async Task<BaseResult<GetBlogsQueryResult>> Handle(
@@ -37,10 +36,7 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             var isOwner = blog.UserId == currentUser.UserId;
             if (!isOwner)
             {
-                var caller = await userManager.FindByIdAsync(currentUser.UserId);
-                var roles = caller is null ? [] : await userManager.GetRolesAsync(caller);
-                var isAdmin = roles.Any(role => string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase));
-                if (!isAdmin)
+                if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
                 {
                     return BaseResult<GetBlogsQueryResult>.Forbidden("You are not authorized to update this blog.");
                 }

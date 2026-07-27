@@ -11,14 +11,13 @@ namespace ZenBlog.Application.Tests.Features.Blogs.Handlers;
 public class CreateBlogCommandHandlerTests
 {
     [Fact]
-    public async Task Handle_AlwaysUsesAuthenticatedUserId_InsteadOfCommandUserId()
+    public async Task Handle_AlwaysUsesAuthenticatedUserId_FromJwt()
     {
         var repository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
         var mapper = new Mock<IMapper>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
 
-        var commandUserId = "payload-user-id";
         var authenticatedUserId = "jwt-user-id";
         var command = new CreateBlogCommand
         {
@@ -26,8 +25,7 @@ public class CreateBlogCommandHandlerTests
             Description = "Security test description",
             CoverImageUrl = null,
             CoverImagePublicId = null,
-            CategoryId = Guid.NewGuid(),
-            UserId = commandUserId
+            CategoryId = Guid.NewGuid()
         };
 
         var mappedBlog = new Blog
@@ -36,7 +34,7 @@ public class CreateBlogCommandHandlerTests
             Title = command.Title,
             Description = command.Description,
             CategoryId = command.CategoryId,
-            UserId = commandUserId
+            UserId = "mapper-placeholder"
         };
 
         Blog? createdEntity = null;
@@ -70,6 +68,5 @@ public class CreateBlogCommandHandlerTests
 
         var persisted = Assert.IsType<Blog>(createdEntity);
         Assert.Equal(authenticatedUserId, persisted.UserId);
-        Assert.NotEqual(commandUserId, persisted.UserId);
     }
 }

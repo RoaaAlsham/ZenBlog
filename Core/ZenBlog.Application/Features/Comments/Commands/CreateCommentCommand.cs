@@ -8,7 +8,6 @@ namespace ZenBlog.Application.Features.Comments.Commands
     {
         public required string Body { get; set; }
         public Guid BlogId { get; set; }
-        public string UserId { get; set; }
         public Guid? ParentCommentId { get; set; } // null = top-level, set = reply
     }
 }
