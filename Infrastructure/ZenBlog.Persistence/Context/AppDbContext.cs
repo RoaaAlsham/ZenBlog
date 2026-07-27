@@ -15,9 +15,6 @@ namespace ZenBlog.Persistence.Context
          */
         public DbSet<Blog> Blogs { get; set; }
         public DbSet<Category> Categories { get; set; }
-        public DbSet<ContactInfo> ContactInfos { get; set; }
-        public DbSet<Message> Messages { get; set; }
-        public DbSet<SocialMedia> SocialMedias { get; set; }
 
         public DbSet<Comment> Comments { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
@@ -36,6 +33,15 @@ namespace ZenBlog.Persistence.Context
                     CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                 });
+            });
+
+            modelBuilder.Entity<Blog>(entity =>
+            {
+                // Prevent deleting a category from wiping all of its blogs.
+                entity.HasOne(b => b.Category)
+                      .WithMany(c => c.Blogs)
+                      .HasForeignKey(b => b.CategoryId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Comment>(entity =>
