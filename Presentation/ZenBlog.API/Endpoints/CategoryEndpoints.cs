@@ -20,7 +20,7 @@ namespace ZenBlog.API.Endpoints
             {
                 var response = await _mediator.Send(command);
                 return response.IsSuccess
-                    ? Results.Created($"/categories/{response.Data}", null)
+                    ? Results.Created($"/api/categories/{response.Data!.Id}", response.Data)
                     : response.ToHttpResult();
             }).RequireAuthorization(policy => policy.RequireRole("Admin"));
 

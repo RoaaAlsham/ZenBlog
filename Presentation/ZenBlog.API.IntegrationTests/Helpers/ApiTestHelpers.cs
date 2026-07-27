@@ -166,8 +166,7 @@ public static class ApiTestHelpers
     public static async Task<Guid> CreateBlogAsync(
         HttpClient client,
         Guid categoryId,
-        string title = "Test blog",
-        string? spoofedUserId = null)
+        string title = "Test blog")
     {
         var response = await client.PostAsJsonAsync("/api/blogs", new
         {
@@ -175,8 +174,7 @@ public static class ApiTestHelpers
             description = "Test description",
             coverImageUrl = (string?)null,
             coverImagePublicId = (string?)null,
-            categoryId,
-            userId = spoofedUserId ?? "should-be-overwritten"
+            categoryId
         });
 
         response.EnsureSuccessStatusCode();

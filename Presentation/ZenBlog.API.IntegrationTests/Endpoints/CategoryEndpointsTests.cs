@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using ZenBlog.API.IntegrationTests.Helpers;
 using ZenBlog.Application.Features.Categories.Commands;
+using ZenBlog.Application.Features.Categories.Results;
 
 namespace ZenBlog.API.IntegrationTests.Endpoints;
 
@@ -70,6 +71,32 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
     }
 
     [Fact]
+    public async Task DeleteCategory_WithBlogs_ReturnsBadRequest_AndKeepsBlogs()
+    {
+        var owner = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory, _client, "category-with-blogs@example.com", "Password123!");
+        _client.UseBearerToken(owner.AccessToken);
+
+        var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Category With Blogs");
+        var blogId = await ApiTestHelpers.CreateBlogAsync(_client, categoryId, "Blog blocking category delete");
+
+        var admin = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory, _client, "category-delete-blocked-admin@example.com", "Password123!");
+        await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
+        admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
+        _client.UseBearerToken(admin.AccessToken);
+
+        var deleteResponse = await _client.DeleteAsync($"/api/categories/{categoryId}");
+        Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
+
+        var blogResponse = await _client.GetAsync($"/api/blogs/{blogId}");
+        Assert.Equal(HttpStatusCode.OK, blogResponse.StatusCode);
+
+        var categoryResponse = await _client.GetAsync($"/api/categories/{categoryId}");
+        Assert.Equal(HttpStatusCode.OK, categoryResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task CreateCategory_AsAdmin_ReturnsCreated()
     {
         var admin = await ApiTestHelpers.RegisterAndLoginAsync(
@@ -84,5 +111,11 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var created = await response.Content.ReadFromJsonAsync<CreateCategoryResult>();
+        Assert.NotNull(created);
+        Assert.NotEqual(Guid.Empty, created.Id);
+        Assert.Equal("Admin Created Category", created.CategoryName);
+        Assert.Equal($"/api/categories/{created.Id}", response.Headers.Location?.ToString());
     }
 }
