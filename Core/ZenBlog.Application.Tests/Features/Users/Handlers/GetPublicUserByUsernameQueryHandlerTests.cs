@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
+using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Users.Handlers;
 using ZenBlog.Application.Features.Users.Queries;
 using ZenBlog.Domain.Entities;
@@ -11,10 +11,12 @@ public class GetPublicUserByUsernameQueryHandlerTests
     [Fact]
     public async Task Handle_UnknownUsername_ReturnsNotFound()
     {
-        var userManager = CreateUserManagerMock();
-        userManager.Setup(x => x.FindByNameAsync("missing")).ReturnsAsync((AppUser?)null);
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        userQuery
+            .Setup(x => x.FindByUserNameAsync("missing", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AppUser?)null);
 
-        var sut = new GetPublicUserByUsernameQueryHandler(userManager.Object);
+        var sut = new GetPublicUserByUsernameQueryHandler(userQuery.Object);
         var result = await sut.Handle(new GetPublicUserByUsernameQuery("missing"), CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -25,7 +27,7 @@ public class GetPublicUserByUsernameQueryHandlerTests
     [Fact]
     public async Task Handle_KnownUsername_ReturnsPublicProfileWithoutEmail()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
         var user = new AppUser
         {
             Id = "u1",
@@ -35,9 +37,11 @@ public class GetPublicUserByUsernameQueryHandlerTests
             LastName = "User",
             ImageUrl = null
         };
-        userManager.Setup(x => x.FindByNameAsync("zenuser")).ReturnsAsync(user);
+        userQuery
+            .Setup(x => x.FindByUserNameAsync("zenuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        var sut = new GetPublicUserByUsernameQueryHandler(userManager.Object);
+        var sut = new GetPublicUserByUsernameQueryHandler(userQuery.Object);
         var result = await sut.Handle(new GetPublicUserByUsernameQuery("zenuser"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -47,12 +51,5 @@ public class GetPublicUserByUsernameQueryHandlerTests
         Assert.Equal(user.FirstName, result.Data.FirstName);
         Assert.Equal(user.LastName, result.Data.LastName);
         Assert.DoesNotContain("secret@example.com", result.Data.ToString(), StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
     }
 }

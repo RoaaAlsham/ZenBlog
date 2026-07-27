@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
@@ -13,7 +12,8 @@ public class RefreshTokenCommandHandlerTests
     [Fact]
     public async Task Handle_ValidToken_RotatesTokenAndRevokesPreviousToken()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var tokenGenerator = new Mock<IJwtTokenGenerator>(MockBehavior.Strict);
         var refreshTokenService = new Mock<IRefreshTokenService>(MockBehavior.Strict);
         var refreshTokenRepository = new Mock<IRepository<RefreshToken>>(MockBehavior.Strict);
@@ -52,12 +52,12 @@ public class RefreshTokenCommandHandlerTests
         refreshTokenRepository
             .Setup(x => x.GetSingleAsync(It.IsAny<System.Linq.Expressions.Expression<Func<RefreshToken, bool>>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingToken);
-        userManager
-            .Setup(x => x.FindByIdAsync(user.Id))
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        userManager
-            .Setup(x => x.GetRolesAsync(user))
-            .ReturnsAsync((IList<string>)roles);
+        roleChecker
+            .Setup(x => x.GetRolesAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<string>)roles);
         tokenGenerator
             .Setup(x => x.GenerateToken(user, roles, null))
             .Returns((accessToken, accessExpiry));
@@ -76,7 +76,8 @@ public class RefreshTokenCommandHandlerTests
             .ReturnsAsync(true);
 
         var sut = new RefreshTokenCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            roleChecker.Object,
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
@@ -106,14 +107,16 @@ public class RefreshTokenCommandHandlerTests
     [InlineData("   ")]
     public async Task Handle_NullOrEmptyRefreshToken_ReturnsFailureWithoutHashing(string? refreshToken)
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var tokenGenerator = new Mock<IJwtTokenGenerator>(MockBehavior.Strict);
         var refreshTokenService = new Mock<IRefreshTokenService>(MockBehavior.Strict);
         var refreshTokenRepository = new Mock<IRepository<RefreshToken>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
 
         var sut = new RefreshTokenCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            roleChecker.Object,
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
@@ -134,7 +137,8 @@ public class RefreshTokenCommandHandlerTests
     [Fact]
     public async Task Handle_RevokedToken_RevokesFamilyAndReturnsUnauthorized()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var tokenGenerator = new Mock<IJwtTokenGenerator>(MockBehavior.Strict);
         var refreshTokenService = new Mock<IRefreshTokenService>(MockBehavior.Strict);
         var refreshTokenRepository = new Mock<IRepository<RefreshToken>>(MockBehavior.Strict);
@@ -180,7 +184,8 @@ public class RefreshTokenCommandHandlerTests
             .ReturnsAsync(true);
 
         var sut = new RefreshTokenCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            roleChecker.Object,
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
@@ -193,20 +198,5 @@ public class RefreshTokenCommandHandlerTests
         Assert.NotNull(activeSibling.RevokedAtUtc);
         refreshTokenRepository.Verify(x => x.CreateAsync(It.IsAny<RefreshToken>()), Times.Never);
         unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Once);
-    }
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
     }
 }

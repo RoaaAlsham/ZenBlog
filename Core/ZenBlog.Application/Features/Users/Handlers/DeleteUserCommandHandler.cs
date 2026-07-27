@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
@@ -10,7 +9,9 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Users.Handlers;
 
 public class DeleteUserCommandHandler(
-    UserManager<AppUser> userManager,
+    IUserQueryService userQuery,
+    IUserAccountService userAccount,
+    IRoleChecker roleChecker,
     ICurrentUserService currentUser,
     IRepository<Comment> commentRepository,
     IRepository<Blog> blogRepository,
@@ -27,10 +28,10 @@ public class DeleteUserCommandHandler(
             return BaseResult<bool>.Unauthorized("You must be signed in to delete a user.");
         }
 
-        var caller = await userManager.FindByIdAsync(currentUser.UserId);
-        var callerRoles = caller is null ? [] : await userManager.GetRolesAsync(caller);
-        var isAdmin = callerRoles.Any(role =>
-            string.Equals(role, UserAccountHardDelete.AdminRoleName, StringComparison.OrdinalIgnoreCase));
+        var isAdmin = await roleChecker.IsInRoleAsync(
+            currentUser.UserId,
+            UserAccountHardDelete.AdminRoleName,
+            cancellationToken);
 
         if (!isAdmin)
         {
@@ -43,20 +44,23 @@ public class DeleteUserCommandHandler(
                 "You cannot delete your own account via admin delete. Use account self-deletion instead.");
         }
 
-        var target = await userManager.FindByIdAsync(request.Id);
+        var target = await userQuery.FindByIdAsync(request.Id, cancellationToken);
         if (target is null)
         {
             return BaseResult<bool>.NotFound($"User with id {request.Id} not found.");
         }
 
-        var targetRoles = await userManager.GetRolesAsync(target);
-        var targetIsAdmin = targetRoles.Any(role =>
-            string.Equals(role, UserAccountHardDelete.AdminRoleName, StringComparison.OrdinalIgnoreCase));
+        var targetIsAdmin = await roleChecker.IsInRoleAsync(
+            request.Id,
+            UserAccountHardDelete.AdminRoleName,
+            cancellationToken);
 
         if (targetIsAdmin)
         {
-            var admins = await userManager.GetUsersInRoleAsync(UserAccountHardDelete.AdminRoleName);
-            if (admins.Count <= 1)
+            var adminCount = await roleChecker.CountUsersInRoleAsync(
+                UserAccountHardDelete.AdminRoleName,
+                cancellationToken);
+            if (adminCount <= 1)
             {
                 return BaseResult<bool>.Forbidden(
                     "Cannot delete the last administrator account.");
@@ -76,10 +80,10 @@ public class DeleteUserCommandHandler(
             cancellationToken);
         _ = await unitOfWork.SaveChangesAsync();
 
-        var deleteResult = await userManager.DeleteAsync(target);
+        var deleteResult = await userAccount.DeleteAsync(target, cancellationToken);
         if (!deleteResult.Succeeded)
         {
-            var errors = string.Join(", ", deleteResult.Errors.Select(e => e.Description));
+            var errors = string.Join(", ", deleteResult.Errors);
             return BaseResult<bool>.Failure(errors);
         }
 

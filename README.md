@@ -38,10 +38,10 @@ ZenBlog follows **Clean Architecture** with four layers that depend strictly inw
 └─────────────────────────────────────────────┘
 ```
 
-- **Domain** has zero dependencies — pure C# entities.
-- **Application** depends only on Domain — no EF Core, no HTTP, no JWT library. It defines *ports* (`IJwtTokenGenerator`, `ICurrentUserService`) that outer layers implement.
+- **Domain** hosts entities; `AppUser`/`AppRole` inherit ASP.NET Identity store types (the only Domain package dep).
+- **Application** depends only on Domain — no EF Core, no HTTP, no `UserManager`. It defines *ports* (`IJwtTokenGenerator`, `ICurrentUserService`, `IUserAccountService`, `IUserQueryService`, `IRoleChecker`, …) that outer layers implement.
 - **Persistence** implements the persistence contracts — EF Core and PostgreSQL live here only.
-- **Infrastructure** implements the identity/auth contracts — JWT creation and validation, current-user resolution.
+- **Infrastructure** implements the identity/auth/media contracts — JWT, current-user, user account/query/role adapters wrapping Identity, Cloudinary.
 - **API** wires everything together — minimal endpoints, middleware, no business logic.
 
 ---
@@ -437,8 +437,8 @@ Task<TEntity?> GetSingleWithIncludesAsync(
     params Expression<Func<TEntity, object>>[] includes);
 ```
 
-### Identity Users via UserManager
-`AppUser` inherits from `IdentityUser<string>` — it cannot use `IRepository<AppUser>` due to the `where TEntity : BaseEntity` constraint. All user operations go through `UserManager<AppUser>`, which is Identity's own repository abstraction.
+### Identity users via application ports
+`AppUser` inherits from `IdentityUser<string>` — it cannot use `IRepository<AppUser>` due to the `where TEntity : BaseEntity` constraint. Handlers use Application ports (`IUserAccountService`, `IUserQueryService`, `IRoleChecker`) instead of `UserManager` directly; Infrastructure adapters wrap Identity.
 
 ### Flat DTOs to Prevent Circular References
 Navigation properties in result DTOs use flat summary types (`CategoryDto`, `BlogDto`, `UserDto`) that never reference back to their parent — preventing infinite JSON serialization cycles:

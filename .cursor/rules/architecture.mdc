@@ -1,0 +1,23 @@
+---
+description: ZenBlog Clean Architecture rules - always apply
+alwaysApply: true
+---
+ZenBlog is Clean Architecture, strict inward dependencies:
+Domain (Identity entity types AppUser/AppRole inherit ASP.NET Identity stores;
+no other infra) <- Application (CQRS/MediatR, FluentValidation, AutoMapper,
+no EF Core, no HTTP, no UserManager — use Contracts/Identity ports) <-
+Infrastructure/Persistence (implements Application's Contracts/*) <-
+Presentation (Minimal APIs, no business logic).
+
+Every feature = Commands/Queries + Handlers + Validators + Results + Mapping,
+under Core/ZenBlog.Application/Features/<Name>/. Never put EF Core or HTTP
+types in Application. Never put business logic in an endpoint - endpoints
+only bind, call mediator.Send, map BaseResult to an HTTP result.
+
+Auth: ICurrentUserService, IJwtTokenGenerator, IRefreshTokenService,
+IUserAccountService, IUserQueryService, and IRoleChecker are ports in
+Application, implemented in ZenBlog.Infrastructure. Never trust a
+client-supplied UserId — always take it from ICurrentUserService in the
+handler. Use IRoleChecker for Admin/owner authorization checks.
+
+All responses use BaseResult<T> { Data, Errors, IsSuccess }.

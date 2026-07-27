@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
@@ -10,7 +9,8 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Users.Handlers;
 
 public class DeleteMyAccountCommandHandler(
-    UserManager<AppUser> userManager,
+    IUserQueryService userQuery,
+    IUserAccountService userAccount,
     ICurrentUserService currentUser,
     IRepository<Comment> commentRepository,
     IRepository<Blog> blogRepository,
@@ -27,13 +27,13 @@ public class DeleteMyAccountCommandHandler(
             return BaseResult<bool>.Unauthorized("You are not authenticated.");
         }
 
-        var user = await userManager.FindByIdAsync(currentUser.UserId);
+        var user = await userQuery.FindByIdAsync(currentUser.UserId, cancellationToken);
         if (user is null)
         {
             return BaseResult<bool>.NotFound("User not found.");
         }
 
-        var passwordValid = await userManager.CheckPasswordAsync(user, request.CurrentPassword);
+        var passwordValid = await userAccount.CheckPasswordAsync(user, request.CurrentPassword, cancellationToken);
         if (!passwordValid)
         {
             return BaseResult<bool>.Failure(new[]
@@ -59,10 +59,10 @@ public class DeleteMyAccountCommandHandler(
             cancellationToken);
         _ = await unitOfWork.SaveChangesAsync();
 
-        var deleteResult = await userManager.DeleteAsync(user);
+        var deleteResult = await userAccount.DeleteAsync(user, cancellationToken);
         if (!deleteResult.Succeeded)
         {
-            var errors = string.Join(", ", deleteResult.Errors.Select(e => e.Description));
+            var errors = string.Join(", ", deleteResult.Errors);
             return BaseResult<bool>.Failure(errors);
         }
 

@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
@@ -17,26 +16,20 @@ public class UpdateSiteSettingsCommandHandlerTests
         var repository = new Mock<IRepository<SiteSettings>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
-        var caller = new AppUser
-        {
-            Id = "user-1",
-            Email = "user@example.com",
-            UserName = "user",
-            FirstName = "Regular",
-            LastName = "User"
-        };
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
+        var callerId = "user-1";
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
-        currentUser.SetupGet(x => x.UserId).Returns(caller.Id);
-        userManager.Setup(x => x.FindByIdAsync(caller.Id)).ReturnsAsync(caller);
-        userManager.Setup(x => x.GetRolesAsync(caller)).ReturnsAsync((IList<string>)new List<string>());
+        currentUser.SetupGet(x => x.UserId).Returns(callerId);
+        roleChecker
+            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         var sut = new UpdateSiteSettingsCommandHandler(
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            userManager.Object);
+            roleChecker.Object);
 
         var result = await sut.Handle(new UpdateSiteSettingsCommand(true), CancellationToken.None);
 
@@ -53,15 +46,8 @@ public class UpdateSiteSettingsCommandHandlerTests
         var repository = new Mock<IRepository<SiteSettings>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
-        var caller = new AppUser
-        {
-            Id = "admin-1",
-            Email = "admin@example.com",
-            UserName = "admin",
-            FirstName = "Site",
-            LastName = "Admin"
-        };
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
+        var callerId = "admin-1";
         var settings = new SiteSettings
         {
             Id = SiteSettings.SingletonId,
@@ -69,11 +55,10 @@ public class UpdateSiteSettingsCommandHandlerTests
         };
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
-        currentUser.SetupGet(x => x.UserId).Returns(caller.Id);
-        userManager.Setup(x => x.FindByIdAsync(caller.Id)).ReturnsAsync(caller);
-        userManager
-            .Setup(x => x.GetRolesAsync(caller))
-            .ReturnsAsync((IList<string>)new List<string> { "Admin" });
+        currentUser.SetupGet(x => x.UserId).Returns(callerId);
+        roleChecker
+            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         repository
             .Setup(x => x.GetByIdAsync(SiteSettings.SingletonId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(settings);
@@ -84,7 +69,7 @@ public class UpdateSiteSettingsCommandHandlerTests
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            userManager.Object);
+            roleChecker.Object);
 
         var result = await sut.Handle(new UpdateSiteSettingsCommand(true), CancellationToken.None);
 
@@ -93,20 +78,5 @@ public class UpdateSiteSettingsCommandHandlerTests
         Assert.True(settings.AllowRegistrations);
         repository.Verify(x => x.UpdateAsync(settings), Times.Once);
         unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Once);
-    }
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
     }
 }

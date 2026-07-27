@@ -1,17 +1,16 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Features.Media;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Results;
-using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Features.Users.Handlers;
 
 public class UpdateProfileCommandHandler(
-    UserManager<AppUser> userManager,
+    IUserQueryService userQuery,
+    IUserAccountService userAccount,
     ICurrentUserService currentUser,
     IImageStorageService imageStorage)
     : IRequestHandler<UpdateProfileCommand, BaseResult<UserProfileResult>>
@@ -25,7 +24,7 @@ public class UpdateProfileCommandHandler(
             return BaseResult<UserProfileResult>.Unauthorized("You are not authenticated.");
         }
 
-        var user = await userManager.FindByIdAsync(currentUser.UserId);
+        var user = await userQuery.FindByIdAsync(currentUser.UserId, cancellationToken);
         if (user is null)
         {
             return BaseResult<UserProfileResult>.NotFound("User not found.");
@@ -40,10 +39,10 @@ public class UpdateProfileCommandHandler(
         user.ImageUrl = newUrl;
         user.ImagePublicId = newPublicId;
 
-        var result = await userManager.UpdateAsync(user);
+        var result = await userAccount.UpdateAsync(user, cancellationToken);
         if (!result.Succeeded)
         {
-            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            var errors = string.Join(", ", result.Errors);
             return BaseResult<UserProfileResult>.Failure(errors);
         }
 

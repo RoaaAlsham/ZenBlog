@@ -1,7 +1,7 @@
 ﻿using AutoMapper;
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
+using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Settings;
 using ZenBlog.Application.Features.Users.Commands;
@@ -11,7 +11,8 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Users.Handlers
 {
     public class CreateUserCommandHandler(
-        UserManager<AppUser> userManager,
+        IUserQueryService userQuery,
+        IUserAccountService userAccount,
         IMapper mapper,
         IRepository<SiteSettings> settingsRepository,
         IUnitOfWork unitOfWork) : IRequestHandler<CreateUserCommand, BaseResult<CreateUserResult>>
@@ -29,7 +30,7 @@ namespace ZenBlog.Application.Features.Users.Handlers
                 return BaseResult<CreateUserResult>.Failure("Registration is currently disabled.");
             }
 
-            var existingUser = await userManager.FindByEmailAsync(request.Email);
+            var existingUser = await userQuery.FindByEmailAsync(request.Email, cancellationToken);
             if (existingUser != null)
             {
                 return BaseResult<CreateUserResult>.Failure("Email is already in use.");
@@ -37,10 +38,10 @@ namespace ZenBlog.Application.Features.Users.Handlers
             var user = mapper.Map<AppUser>(request);
             user.Id= Guid.NewGuid().ToString();
 
-            var result = await userManager.CreateAsync(user, request.Password);
+            var result = await userAccount.CreateAsync(user, request.Password, cancellationToken);
             if (!result.Succeeded)
             {
-                var errors = string.Join(",", result.Errors.Select(e => e.Description));
+                var errors = string.Join(",", result.Errors);
                 return BaseResult<CreateUserResult>.Failure(errors);
             }
 

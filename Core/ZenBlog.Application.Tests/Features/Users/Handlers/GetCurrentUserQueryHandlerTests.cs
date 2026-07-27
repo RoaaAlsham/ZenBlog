@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Users.Handlers;
@@ -12,12 +11,12 @@ public class GetCurrentUserQueryHandlerTests
     [Fact]
     public async Task Handle_Unauthenticated_ReturnsUnauthorized()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(false);
         currentUser.SetupGet(x => x.UserId).Returns((string?)null);
 
-        var sut = new GetCurrentUserQueryHandler(userManager.Object, currentUser.Object);
+        var sut = new GetCurrentUserQueryHandler(userQuery.Object, currentUser.Object);
         var result = await sut.Handle(new GetCurrentUserQuery(), CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -27,13 +26,15 @@ public class GetCurrentUserQueryHandlerTests
     [Fact]
     public async Task Handle_UserMissing_ReturnsNotFound()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns("missing");
-        userManager.Setup(x => x.FindByIdAsync("missing")).ReturnsAsync((AppUser?)null);
+        userQuery
+            .Setup(x => x.FindByIdAsync("missing", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AppUser?)null);
 
-        var sut = new GetCurrentUserQueryHandler(userManager.Object, currentUser.Object);
+        var sut = new GetCurrentUserQueryHandler(userQuery.Object, currentUser.Object);
         var result = await sut.Handle(new GetCurrentUserQuery(), CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -43,7 +44,7 @@ public class GetCurrentUserQueryHandlerTests
     [Fact]
     public async Task Handle_AuthenticatedUser_ReturnsProfile()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var user = new AppUser
         {
@@ -57,9 +58,11 @@ public class GetCurrentUserQueryHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        var sut = new GetCurrentUserQueryHandler(userManager.Object, currentUser.Object);
+        var sut = new GetCurrentUserQueryHandler(userQuery.Object, currentUser.Object);
         var result = await sut.Handle(new GetCurrentUserQuery(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -71,12 +74,5 @@ public class GetCurrentUserQueryHandlerTests
         Assert.Equal(user.LastName, result.Data.LastName);
         Assert.Equal(user.ImageUrl, result.Data.ImageUrl);
         Assert.Equal(user.ImagePublicId, result.Data.ImagePublicId);
-    }
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
     }
 }

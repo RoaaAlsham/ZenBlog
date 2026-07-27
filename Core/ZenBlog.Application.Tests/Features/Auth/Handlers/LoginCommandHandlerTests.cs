@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Auth.Commands;
@@ -13,19 +12,23 @@ public class LoginCommandHandlerTests
     [Fact]
     public async Task Handle_UnknownEmail_ReturnsFailureWithGenericMessage()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var tokenGenerator = new Mock<IJwtTokenGenerator>(MockBehavior.Strict);
         var refreshTokenService = new Mock<IRefreshTokenService>(MockBehavior.Strict);
         var refreshTokenRepository = new Mock<IRepository<RefreshToken>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var command = new LoginCommand { Email = "missing@example.com", Password = "Password123!" };
 
-        userManager
-            .Setup(x => x.FindByEmailAsync(command.Email))
+        userQuery
+            .Setup(x => x.FindByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync((AppUser?)null);
 
         var sut = new LoginCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
+            roleChecker.Object,
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
@@ -42,7 +45,9 @@ public class LoginCommandHandlerTests
     [Fact]
     public async Task Handle_WrongPassword_ReturnsFailureWithSameGenericMessage()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var tokenGenerator = new Mock<IJwtTokenGenerator>(MockBehavior.Strict);
         var refreshTokenService = new Mock<IRefreshTokenService>(MockBehavior.Strict);
         var refreshTokenRepository = new Mock<IRepository<RefreshToken>>(MockBehavior.Strict);
@@ -57,15 +62,17 @@ public class LoginCommandHandlerTests
         };
         var command = new LoginCommand { Email = user.Email!, Password = "WrongPassword!" };
 
-        userManager
-            .Setup(x => x.FindByEmailAsync(command.Email))
+        userQuery
+            .Setup(x => x.FindByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        userManager
-            .Setup(x => x.CheckPasswordAsync(user, command.Password))
+        userAccount
+            .Setup(x => x.CheckPasswordAsync(user, command.Password, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         var sut = new LoginCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
+            roleChecker.Object,
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
@@ -82,7 +89,9 @@ public class LoginCommandHandlerTests
     [Fact]
     public async Task Handle_ValidCredentials_ReturnsSuccessWithTokenGeneratorOutput()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var tokenGenerator = new Mock<IJwtTokenGenerator>(MockBehavior.Strict);
         var refreshTokenService = new Mock<IRefreshTokenService>(MockBehavior.Strict);
         var refreshTokenRepository = new Mock<IRepository<RefreshToken>>(MockBehavior.Strict);
@@ -103,15 +112,15 @@ public class LoginCommandHandlerTests
         var expectedRefreshTokenHash = "mock-refresh-token-hash";
         var expectedRefreshExpiry = DateTime.UtcNow.AddDays(7);
 
-        userManager
-            .Setup(x => x.FindByEmailAsync(command.Email))
+        userQuery
+            .Setup(x => x.FindByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        userManager
-            .Setup(x => x.CheckPasswordAsync(user, command.Password))
+        userAccount
+            .Setup(x => x.CheckPasswordAsync(user, command.Password, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        userManager
-            .Setup(x => x.GetRolesAsync(user))
-            .ReturnsAsync((IList<string>)roles);
+        roleChecker
+            .Setup(x => x.GetRolesAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlyList<string>)roles);
         tokenGenerator
             .Setup(x => x.GenerateToken(user, roles, null))
             .Returns((expectedToken, expectedExpiry));
@@ -129,7 +138,9 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(true);
 
         var sut = new LoginCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
+            roleChecker.Object,
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
@@ -151,20 +162,5 @@ public class LoginCommandHandlerTests
         Assert.Equal(expectedRefreshToken, data.RefreshToken);
         Assert.Equal(expectedRefreshExpiry, data.RefreshTokenExpiresAtUtc);
         Assert.Empty(result.Errors);
-    }
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
     }
 }

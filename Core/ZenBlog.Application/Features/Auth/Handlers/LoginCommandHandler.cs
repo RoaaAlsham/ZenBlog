@@ -1,5 +1,4 @@
 ﻿using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
@@ -10,7 +9,9 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Auth.Handlers
 {
     public class LoginCommandHandler(
-        UserManager<AppUser> userManager,
+        IUserQueryService userQuery,
+        IUserAccountService userAccount,
+        IRoleChecker roleChecker,
         IJwtTokenGenerator tokenGenerator,
         IRefreshTokenService refreshTokenService,
         IRepository<RefreshToken> refreshTokenRepository,
@@ -18,7 +19,7 @@ namespace ZenBlog.Application.Features.Auth.Handlers
     {
         public async Task<BaseResult<LoginResult>> Handle(LoginCommand request, CancellationToken cancellationToken)
         {
-            var user = await userManager.FindByEmailAsync(request.Email);
+            var user = await userQuery.FindByEmailAsync(request.Email, cancellationToken);
             if (user is null)
             {
                 // Deliberately the SAME message as a wrong password below:
@@ -26,13 +27,13 @@ namespace ZenBlog.Application.Features.Auth.Handlers
                 return BaseResult<LoginResult>.Unauthorized("Invalid email or password.");
             }
 
-            var passwordValid = await userManager.CheckPasswordAsync(user, request.Password);
+            var passwordValid = await userAccount.CheckPasswordAsync(user, request.Password, cancellationToken);
             if (!passwordValid)
             {
                 return BaseResult<LoginResult>.Unauthorized("Invalid email or password.");
             }
 
-            var roles = await userManager.GetRolesAsync(user);
+            var roles = (await roleChecker.GetRolesAsync(user.Id, cancellationToken)).ToList();
             // Expiry comes from JwtSettings via the generator default (not a hardcoded minutes value).
             var (token, expiresAtUtc) = tokenGenerator.GenerateToken(user, roles);
             var (refreshToken, refreshTokenHash, refreshTokenExpiresAtUtc) = refreshTokenService.GenerateRefreshToken(7);

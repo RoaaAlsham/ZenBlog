@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
@@ -18,21 +17,22 @@ public class DeleteCommentCommandHandlerTests
         var repository = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new RemoveCommentCommand(Guid.NewGuid());
         var comment = CreateComment(command.Id, "comment-owner-id");
-        var caller = CreateUser("different-user-id");
+        var callerId = "different-user-id";
 
         repository
             .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(comment);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
-        currentUser.SetupGet(x => x.UserId).Returns(caller.Id);
-        userManager.Setup(x => x.FindByIdAsync(caller.Id)).ReturnsAsync(caller);
-        userManager.Setup(x => x.GetRolesAsync(caller)).ReturnsAsync((IList<string>)["User"]);
+        currentUser.SetupGet(x => x.UserId).Returns(callerId);
+        roleChecker
+            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
-        var sut = CreateSut(repository, unitOfWork, currentUser, userManager);
+        var sut = CreateSut(repository, unitOfWork, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.Equal(ResultStatus.Forbidden, result.Status);
@@ -49,7 +49,7 @@ public class DeleteCommentCommandHandlerTests
         var repository = new Mock<IRepository<Comment>>(MockBehavior.Loose);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var ownerId = "comment-owner-id";
         var command = new RemoveCommentCommand(Guid.NewGuid());
@@ -69,14 +69,16 @@ public class DeleteCommentCommandHandlerTests
         currentUser.SetupGet(x => x.UserId).Returns(ownerId);
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
 
-        var sut = CreateSut(repository, unitOfWork, currentUser, userManager);
+        var sut = CreateSut(repository, unitOfWork, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Data);
         repository.Verify(x => x.DeleteAsync(comment), Times.Once);
         unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Once);
-        userManager.Verify(x => x.GetRolesAsync(It.IsAny<AppUser>()), Times.Never);
+        roleChecker.Verify(
+            x => x.IsInRoleAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -85,11 +87,11 @@ public class DeleteCommentCommandHandlerTests
         var repository = new Mock<IRepository<Comment>>(MockBehavior.Loose);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new RemoveCommentCommand(Guid.NewGuid());
         var comment = CreateComment(command.Id, "comment-owner-id");
-        var admin = CreateUser("admin-id");
+        var adminId = "admin-id";
 
         repository
             .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
@@ -102,12 +104,13 @@ public class DeleteCommentCommandHandlerTests
             .ReturnsAsync([]);
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
-        currentUser.SetupGet(x => x.UserId).Returns(admin.Id);
-        userManager.Setup(x => x.FindByIdAsync(admin.Id)).ReturnsAsync(admin);
-        userManager.Setup(x => x.GetRolesAsync(admin)).ReturnsAsync((IList<string>)["Admin"]);
+        currentUser.SetupGet(x => x.UserId).Returns(adminId);
+        roleChecker
+            .Setup(x => x.IsInRoleAsync(adminId, "Admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
 
-        var sut = CreateSut(repository, unitOfWork, currentUser, userManager);
+        var sut = CreateSut(repository, unitOfWork, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -121,14 +124,14 @@ public class DeleteCommentCommandHandlerTests
         var repository = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new RemoveCommentCommand(Guid.NewGuid());
         repository
             .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Comment?)null);
 
-        var sut = CreateSut(repository, unitOfWork, currentUser, userManager);
+        var sut = CreateSut(repository, unitOfWork, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.Equal(ResultStatus.NotFound, result.Status);
@@ -141,7 +144,7 @@ public class DeleteCommentCommandHandlerTests
         var repository = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new RemoveCommentCommand(Guid.NewGuid());
         var comment = CreateComment(command.Id, "comment-owner-id");
@@ -152,7 +155,7 @@ public class DeleteCommentCommandHandlerTests
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(false);
         currentUser.SetupGet(x => x.UserId).Returns((string?)null);
 
-        var sut = CreateSut(repository, unitOfWork, currentUser, userManager);
+        var sut = CreateSut(repository, unitOfWork, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.Equal(ResultStatus.Unauthorized, result.Status);
@@ -164,8 +167,8 @@ public class DeleteCommentCommandHandlerTests
         Mock<IRepository<Comment>> repository,
         Mock<IUnitOfWork> unitOfWork,
         Mock<ICurrentUserService> currentUser,
-        Mock<UserManager<AppUser>> userManager) =>
-        new(repository.Object, unitOfWork.Object, currentUser.Object, userManager.Object);
+        Mock<IRoleChecker> roleChecker) =>
+        new(repository.Object, unitOfWork.Object, currentUser.Object, roleChecker.Object);
 
     private static Comment CreateComment(Guid id, string userId) => new()
     {
@@ -174,20 +177,4 @@ public class DeleteCommentCommandHandlerTests
         BlogId = Guid.NewGuid(),
         UserId = userId
     };
-
-    private static AppUser CreateUser(string id) => new()
-    {
-        Id = id,
-        Email = $"{id}@example.com",
-        UserName = $"{id}@example.com",
-        FirstName = "Test",
-        LastName = "User"
-    };
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
-    }
 }

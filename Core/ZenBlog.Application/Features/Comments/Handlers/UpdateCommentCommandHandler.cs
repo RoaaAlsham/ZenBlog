@@ -1,6 +1,5 @@
 ﻿using AutoMapper;
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
@@ -15,7 +14,7 @@ namespace ZenBlog.Application.Features.Comments.Handlers
         IUnitOfWork uow,
         IMapper mapper,
         ICurrentUserService currentUser,
-        UserManager<AppUser> userManager)
+        IRoleChecker roleChecker)
         : IRequestHandler<UpdateCommentCommand, BaseResult<CommentResult>>
     {
         public async Task<BaseResult<CommentResult>> Handle(
@@ -39,11 +38,7 @@ namespace ZenBlog.Application.Features.Comments.Handlers
             var isOwner = comment.UserId == currentUser.UserId;
             if (!isOwner)
             {
-                var caller = await userManager.FindByIdAsync(currentUser.UserId);
-                var roles = caller is null ? [] : await userManager.GetRolesAsync(caller);
-                var isAdmin = roles.Any(role =>
-                    string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase));
-                if (!isAdmin)
+                if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
                 {
                     return BaseResult<CommentResult>.Forbidden("You are not authorized to update this comment.");
                 }

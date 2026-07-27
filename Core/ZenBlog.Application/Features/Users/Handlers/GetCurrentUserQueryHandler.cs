@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Users.Queries;
@@ -9,7 +8,7 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Users.Handlers;
 
 public class GetCurrentUserQueryHandler(
-    UserManager<AppUser> userManager,
+    IUserQueryService userQuery,
     ICurrentUserService currentUser)
     : IRequestHandler<GetCurrentUserQuery, BaseResult<UserProfileResult>>
 {
@@ -22,7 +21,7 @@ public class GetCurrentUserQueryHandler(
             return BaseResult<UserProfileResult>.Unauthorized("You are not authenticated.");
         }
 
-        var user = await userManager.FindByIdAsync(currentUser.UserId);
+        var user = await userQuery.FindByIdAsync(currentUser.UserId, cancellationToken);
         if (user is null)
         {
             return BaseResult<UserProfileResult>.NotFound("User not found.");

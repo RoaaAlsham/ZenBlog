@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
@@ -16,7 +15,8 @@ public class DeleteMyAccountCommandHandlerTests
     [Fact]
     public async Task Handle_WrongPassword_ReturnsFailureAndDoesNotDelete()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
@@ -27,11 +27,16 @@ public class DeleteMyAccountCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager.Setup(x => x.CheckPasswordAsync(user, "Wrong!")).ReturnsAsync(false);
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.CheckPasswordAsync(user, "Wrong!", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         var sut = new DeleteMyAccountCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             currentUser.Object,
             commentRepo.Object,
             blogRepo.Object,
@@ -44,14 +49,17 @@ public class DeleteMyAccountCommandHandlerTests
 
         Assert.True(result.IsFailure);
         Assert.Equal("Incorrect password.", Assert.Single(result.Errors).ErrorMessage);
-        userManager.Verify(x => x.DeleteAsync(It.IsAny<AppUser>()), Times.Never);
+        userAccount.Verify(
+            x => x.DeleteAsync(It.IsAny<AppUser>(), It.IsAny<CancellationToken>()),
+            Times.Never);
         unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Never);
     }
 
     [Fact]
     public async Task Handle_ValidPassword_PurgesContentAndDeletesUser()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Loose);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Loose);
@@ -72,9 +80,15 @@ public class DeleteMyAccountCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager.Setup(x => x.CheckPasswordAsync(user, "Password123!")).ReturnsAsync(true);
-        userManager.Setup(x => x.DeleteAsync(user)).ReturnsAsync(IdentityResult.Success);
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.CheckPasswordAsync(user, "Password123!", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        userAccount
+            .Setup(x => x.DeleteAsync(user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Success());
 
         commentRepo
             .Setup(x => x.GetAllWithIncludesAsync(
@@ -100,7 +114,8 @@ public class DeleteMyAccountCommandHandlerTests
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
 
         var sut = new DeleteMyAccountCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             currentUser.Object,
             commentRepo.Object,
             blogRepo.Object,
@@ -115,7 +130,7 @@ public class DeleteMyAccountCommandHandlerTests
         Assert.True(result.Data);
         blogRepo.Verify(x => x.DeleteAsync(blog), Times.Once);
         unitOfWork.Verify(x => x.SaveChangesAsync(), Times.Once);
-        userManager.Verify(x => x.DeleteAsync(user), Times.Once);
+        userAccount.Verify(x => x.DeleteAsync(user, It.IsAny<CancellationToken>()), Times.Once);
         imageStorage.Verify(x => x.DeleteAsync("zenblog/profiles/me", It.IsAny<CancellationToken>()), Times.Once);
         imageStorage.Verify(x => x.DeleteAsync("zenblog/covers/post", It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -123,7 +138,8 @@ public class DeleteMyAccountCommandHandlerTests
     [Fact]
     public async Task Handle_Unauthenticated_ReturnsUnauthorized()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var commentRepo = new Mock<IRepository<Comment>>(MockBehavior.Strict);
         var blogRepo = new Mock<IRepository<Blog>>(MockBehavior.Strict);
@@ -134,7 +150,8 @@ public class DeleteMyAccountCommandHandlerTests
         currentUser.SetupGet(x => x.UserId).Returns((string?)null);
 
         var sut = new DeleteMyAccountCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             currentUser.Object,
             commentRepo.Object,
             blogRepo.Object,
@@ -156,11 +173,4 @@ public class DeleteMyAccountCommandHandlerTests
         FirstName = "Zen",
         LastName = "User"
     };
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
-    }
 }

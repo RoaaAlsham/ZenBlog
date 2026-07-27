@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
@@ -13,7 +12,7 @@ public class UpdateSiteSettingsCommandHandler(
     IRepository<SiteSettings> repository,
     IUnitOfWork unitOfWork,
     ICurrentUserService currentUser,
-    UserManager<AppUser> userManager)
+    IRoleChecker roleChecker)
     : IRequestHandler<UpdateSiteSettingsCommand, BaseResult<SiteSettingsResult>>
 {
     public async Task<BaseResult<SiteSettingsResult>> Handle(
@@ -26,12 +25,7 @@ public class UpdateSiteSettingsCommandHandler(
                 "You must be signed in to update site settings.");
         }
 
-        var caller = await userManager.FindByIdAsync(currentUser.UserId);
-        var roles = caller is null ? [] : await userManager.GetRolesAsync(caller);
-        var isAdmin = roles.Any(role =>
-            string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase));
-
-        if (!isAdmin)
+        if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
         {
             return BaseResult<SiteSettingsResult>.Forbidden(
                 "Only administrators can update site settings.");

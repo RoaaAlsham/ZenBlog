@@ -1,13 +1,12 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
+using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Users.Queries;
 using ZenBlog.Application.Features.Users.Results;
-using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Features.Users.Handlers;
 
-public class GetPublicUserByUsernameQueryHandler(UserManager<AppUser> userManager)
+public class GetPublicUserByUsernameQueryHandler(IUserQueryService userQuery)
     : IRequestHandler<GetPublicUserByUsernameQuery, BaseResult<PublicUserResult>>
 {
     public async Task<BaseResult<PublicUserResult>> Handle(
@@ -19,7 +18,7 @@ public class GetPublicUserByUsernameQueryHandler(UserManager<AppUser> userManage
             return BaseResult<PublicUserResult>.NotFound("User not found.");
         }
 
-        var user = await userManager.FindByNameAsync(request.Username.Trim());
+        var user = await userQuery.FindByUserNameAsync(request.Username.Trim(), cancellationToken);
         if (user is null)
         {
             return BaseResult<PublicUserResult>.NotFound("User not found.");

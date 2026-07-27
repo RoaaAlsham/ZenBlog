@@ -1,6 +1,6 @@
 using AutoMapper;
-using Microsoft.AspNetCore.Identity;
 using Moq;
+using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Handlers;
@@ -13,7 +13,8 @@ public class CreateUserCommandHandlerTests
     [Fact]
     public async Task Handle_WhenRegistrationsDisabled_ReturnsFailureAndDoesNotCreateUser()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var mapper = new Mock<IMapper>(MockBehavior.Strict);
         var settingsRepository = new Mock<IRepository<SiteSettings>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
@@ -27,7 +28,8 @@ public class CreateUserCommandHandlerTests
             });
 
         var sut = new CreateUserCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             mapper.Object,
             settingsRepository.Object,
             unitOfWork.Object);
@@ -36,16 +38,19 @@ public class CreateUserCommandHandlerTests
 
         Assert.True(result.IsFailure);
         Assert.Equal("Registration is currently disabled.", Assert.Single(result.Errors).ErrorMessage);
-        userManager.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
-        userManager.Verify(
-            x => x.CreateAsync(It.IsAny<AppUser>(), It.IsAny<string>()),
+        userQuery.Verify(
+            x => x.FindByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        userAccount.Verify(
+            x => x.CreateAsync(It.IsAny<AppUser>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
     public async Task Handle_WhenRegistrationsEnabled_CreatesUser()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var mapper = new Mock<IMapper>(MockBehavior.Strict);
         var settingsRepository = new Mock<IRepository<SiteSettings>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
@@ -65,14 +70,17 @@ public class CreateUserCommandHandlerTests
                 Id = SiteSettings.SingletonId,
                 AllowRegistrations = true
             });
-        userManager.Setup(x => x.FindByEmailAsync(command.Email)).ReturnsAsync((AppUser?)null);
+        userQuery
+            .Setup(x => x.FindByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AppUser?)null);
         mapper.Setup(x => x.Map<AppUser>(command)).Returns(mappedUser);
-        userManager
-            .Setup(x => x.CreateAsync(mappedUser, command.Password))
-            .ReturnsAsync(IdentityResult.Success);
+        userAccount
+            .Setup(x => x.CreateAsync(mappedUser, command.Password, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Success());
 
         var sut = new CreateUserCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             mapper.Object,
             settingsRepository.Object,
             unitOfWork.Object);
@@ -93,19 +101,4 @@ public class CreateUserCommandHandlerTests
         Email = "jane@example.com",
         Password = "Password1!"
     };
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
-    }
 }

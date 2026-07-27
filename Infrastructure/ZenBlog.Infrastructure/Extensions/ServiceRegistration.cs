@@ -25,6 +25,9 @@ namespace ZenBlog.Infrastructure.Extensions
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
             services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+            services.AddScoped<IRoleChecker, RoleChecker>();
+            services.AddScoped<IUserQueryService, UserQueryService>();
+            services.AddScoped<IUserAccountService, UserAccountService>();
             services.AddScoped<IImageStorageService, CloudinaryImageStorageService>();
 
             services.AddAuthentication(options =>

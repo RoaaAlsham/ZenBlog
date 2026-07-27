@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
@@ -10,7 +9,8 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Auth.Handlers;
 
 public class RefreshTokenCommandHandler(
-    UserManager<AppUser> userManager,
+    IUserQueryService userQuery,
+    IRoleChecker roleChecker,
     IJwtTokenGenerator tokenGenerator,
     IRefreshTokenService refreshTokenService,
     IRepository<RefreshToken> refreshTokenRepository,
@@ -46,13 +46,13 @@ public class RefreshTokenCommandHandler(
             return BaseResult<RefreshTokenResult>.Unauthorized("Invalid refresh token.");
         }
 
-        var user = await userManager.FindByIdAsync(existingToken.UserId);
+        var user = await userQuery.FindByIdAsync(existingToken.UserId, cancellationToken);
         if (user is null)
         {
             return BaseResult<RefreshTokenResult>.Unauthorized("Invalid refresh token.");
         }
 
-        var roles = await userManager.GetRolesAsync(user);
+        var roles = (await roleChecker.GetRolesAsync(user.Id, cancellationToken)).ToList();
         // Expiry comes from JwtSettings via the generator default (not a hardcoded minutes value).
         var (accessToken, accessTokenExpiresAtUtc) = tokenGenerator.GenerateToken(user, roles);
         var (newRefreshToken, newRefreshTokenHash, newRefreshTokenExpiresAtUtc) = refreshTokenService.GenerateRefreshToken(7);

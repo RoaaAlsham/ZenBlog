@@ -1,14 +1,13 @@
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Users.Commands;
-using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Features.Users.Handlers;
 
 public class ChangePasswordCommandHandler(
-    UserManager<AppUser> userManager,
+    IUserQueryService userQuery,
+    IUserAccountService userAccount,
     ICurrentUserService currentUser)
     : IRequestHandler<ChangePasswordCommand, BaseResult<bool>>
 {
@@ -21,25 +20,26 @@ public class ChangePasswordCommandHandler(
             return BaseResult<bool>.Unauthorized("You are not authenticated.");
         }
 
-        var user = await userManager.FindByIdAsync(currentUser.UserId);
+        var user = await userQuery.FindByIdAsync(currentUser.UserId, cancellationToken);
         if (user is null)
         {
             return BaseResult<bool>.NotFound("User not found.");
         }
 
-        var result = await userManager.ChangePasswordAsync(
+        var result = await userAccount.ChangePasswordAsync(
             user,
             request.CurrentPassword,
-            request.NewPassword);
+            request.NewPassword,
+            cancellationToken);
 
         if (!result.Succeeded)
         {
             var errors = result.Errors.Select(e => new Error
             {
-                PropertyName = e.Code.Contains("Password", StringComparison.OrdinalIgnoreCase)
+                PropertyName = e.Contains("Password", StringComparison.OrdinalIgnoreCase)
                     ? "NewPassword"
                     : null,
-                ErrorMessage = e.Description
+                ErrorMessage = e
             });
             return BaseResult<bool>.Failure(errors);
         }

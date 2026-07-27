@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Users.Commands;
@@ -12,7 +11,8 @@ public class ChangePasswordCommandHandlerTests
     [Fact]
     public async Task Handle_WrongCurrentPassword_ReturnsFailure()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var user = new AppUser
         {
@@ -25,16 +25,14 @@ public class ChangePasswordCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager
-            .Setup(x => x.ChangePasswordAsync(user, "WrongOld!", "Password123!"))
-            .ReturnsAsync(IdentityResult.Failed(new IdentityError
-            {
-                Code = "PasswordMismatch",
-                Description = "Incorrect password."
-            }));
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.ChangePasswordAsync(user, "WrongOld!", "Password123!", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Failure("Incorrect password."));
 
-        var sut = new ChangePasswordCommandHandler(userManager.Object, currentUser.Object);
+        var sut = new ChangePasswordCommandHandler(userQuery.Object, userAccount.Object, currentUser.Object);
         var result = await sut.Handle(
             new ChangePasswordCommand
             {
@@ -50,7 +48,8 @@ public class ChangePasswordCommandHandlerTests
     [Fact]
     public async Task Handle_ValidChange_ReturnsSuccess()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var user = new AppUser
         {
@@ -63,12 +62,14 @@ public class ChangePasswordCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager
-            .Setup(x => x.ChangePasswordAsync(user, "Password123!", "NewPassword123!"))
-            .ReturnsAsync(IdentityResult.Success);
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.ChangePasswordAsync(user, "Password123!", "NewPassword123!", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Success());
 
-        var sut = new ChangePasswordCommandHandler(userManager.Object, currentUser.Object);
+        var sut = new ChangePasswordCommandHandler(userQuery.Object, userAccount.Object, currentUser.Object);
         var result = await sut.Handle(
             new ChangePasswordCommand
             {
@@ -79,12 +80,5 @@ public class ChangePasswordCommandHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Data);
-    }
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
     }
 }

@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
@@ -16,7 +15,8 @@ public class UpdateProfileCommandHandlerTests
     [Fact]
     public async Task Handle_UpdatesNamesAndImage_FromAuthenticatedUser()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var user = new AppUser
@@ -32,13 +32,16 @@ public class UpdateProfileCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager
-            .Setup(x => x.UpdateAsync(user))
-            .ReturnsAsync(IdentityResult.Success);
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Success());
 
         var sut = new UpdateProfileCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             currentUser.Object,
             imageStorage.Object);
         var result = await sut.Handle(
@@ -66,7 +69,8 @@ public class UpdateProfileCommandHandlerTests
     [Fact]
     public async Task Handle_ReplacingImage_DeletesOldPublicId()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var user = new AppUser
@@ -82,14 +86,19 @@ public class UpdateProfileCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager.Setup(x => x.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Success());
         imageStorage
             .Setup(x => x.DeleteAsync("zenblog/profiles/old", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sut = new UpdateProfileCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             currentUser.Object,
             imageStorage.Object);
         var result = await sut.Handle(
@@ -112,7 +121,8 @@ public class UpdateProfileCommandHandlerTests
     [Fact]
     public async Task Handle_BlankImage_ClearsAndDeletesOldPublicId()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var user = new AppUser
@@ -128,14 +138,19 @@ public class UpdateProfileCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager.Setup(x => x.UpdateAsync(user)).ReturnsAsync(IdentityResult.Success);
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Success());
         imageStorage
             .Setup(x => x.DeleteAsync("zenblog/profiles/old", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sut = new UpdateProfileCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             currentUser.Object,
             imageStorage.Object);
         var result = await sut.Handle(
@@ -159,7 +174,8 @@ public class UpdateProfileCommandHandlerTests
     [Fact]
     public async Task Handle_UpdateFails_DoesNotDeleteOldPublicId()
     {
-        var userManager = CreateUserManagerMock();
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Strict);
+        var userAccount = new Mock<IUserAccountService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var user = new AppUser
@@ -175,13 +191,16 @@ public class UpdateProfileCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
-        userManager.Setup(x => x.FindByIdAsync(user.Id)).ReturnsAsync(user);
-        userManager
-            .Setup(x => x.UpdateAsync(user))
-            .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "fail" }));
+        userQuery
+            .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        userAccount
+            .Setup(x => x.UpdateAsync(user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityOperationResult.Failure("fail"));
 
         var sut = new UpdateProfileCommandHandler(
-            userManager.Object,
+            userQuery.Object,
+            userAccount.Object,
             currentUser.Object,
             imageStorage.Object);
         var result = await sut.Handle(
@@ -198,12 +217,5 @@ public class UpdateProfileCommandHandlerTests
         imageStorage.Verify(
             x => x.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
-    }
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
     }
 }
