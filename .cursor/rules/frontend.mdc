@@ -1,0 +1,11 @@
+---
+description: Frontend conventions for the ZenBlog client
+globs:
+  - client/**/*.tsx
+  - client/**/*.ts
+---
+API base response shape is always { data, errors } (BaseResult<T> from the backend).
+Auth: POST /auth/login returns { userId, email, token, expiresAtUtc }. Store token
+in memory/context, not localStorage directly, attach as Authorization: Bearer <token>.
+Match backend DTO field casing exactly (see /client/src/api/types.ts, generated
+from the backend's actual JSON, not guessed).

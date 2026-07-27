@@ -1,0 +1,9 @@
+---
+description: Use when writing or running backend tests for ZenBlog.Application or ZenBlog.API
+---
+Test handlers in isolation: mock IRepository<T>/IUnitOfWork/ICurrentUserService/
+IJwtTokenGenerator with NSubstitute or Moq, assert on BaseResult.IsSuccess and
+BaseResult.Data. Validators get their own tests via validator.TestValidate().
+Use an EF Core InMemory or Testcontainers Postgres for repository-level tests,
+never the real dev database. Put tests in a new ZenBlog.Application.Tests /
+ZenBlog.API.IntegrationTests project mirroring the folder structure being tested.
