@@ -31,6 +31,32 @@ namespace ZenBlog.Application.Contracts.Persistence
     Expression<Func<TEntity, bool>> filter,
     CancellationToken ct = default,
     params Expression<Func<TEntity, object>>[] includes);
+
+        /// <summary>
+        /// Loads entities with EF include paths (supports nested paths like "Replies.User").
+        /// </summary>
+        Task<List<TEntity>> GetAllWithIncludePathsAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default,
+            params string[] includePaths);
+
+        /// <summary>
+        /// Loads a single entity with EF include paths (supports nested paths like "Replies.User").
+        /// </summary>
+        Task<TEntity?> GetSingleWithIncludePathsAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default,
+            params string[] includePaths);
+
+        /// <summary>
+        /// Paged query with EF include paths. Ordered by CreatedAt descending.
+        /// </summary>
+        Task<(List<TEntity> Items, int TotalCount)> GetPagedWithIncludePathsAsync(
+            Expression<Func<TEntity, bool>> filter,
+            int page,
+            int pageSize,
+            CancellationToken ct = default,
+            params string[] includePaths);
     }
 
 

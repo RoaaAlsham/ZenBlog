@@ -10,20 +10,29 @@ using ZenBlog.Domain.Entities;
 namespace ZenBlog.Application.Features.Comments.Handlers
 {
     public class GetCommentsByBlogIdQueryHandler(IRepository<Comment> repo, IMapper mapper)
-        : IRequestHandler<GetCommentsByBlogIdQuery, BaseResult<IEnumerable<CommentResult>>>
+        : IRequestHandler<GetCommentsByBlogIdQuery, BaseResult<PagedResult<CommentResult>>>
     {
-        public async Task<BaseResult<IEnumerable<CommentResult>>> Handle(
+        public async Task<BaseResult<PagedResult<CommentResult>>> Handle(
             GetCommentsByBlogIdQuery request, CancellationToken cancellationToken)
         {
-            // Only fetch top-level comments — replies are nested inside via Replies collection
-            var comments = await repo.GetAllWithIncludesAsync(
-                c => c.BlogId == request.BlogId && c.ParentCommentId == null,
-                cancellationToken,
-                c => c.User,
-                c => c.Replies);
+            var (page, pageSize) = Paging.Normalize(
+                request.Page,
+                request.PageSize,
+                Paging.DefaultCommentsPageSize);
 
-            return BaseResult<IEnumerable<CommentResult>>
-                .Success(mapper.Map<IEnumerable<CommentResult>>(comments));
+            // Top-level comments only; one reply level with authors (Replies.User).
+            var (items, totalCount) = await repo.GetPagedWithIncludePathsAsync(
+                c => c.BlogId == request.BlogId && c.ParentCommentId == null,
+                page,
+                pageSize,
+                cancellationToken,
+                "User",
+                "Replies",
+                "Replies.User");
+
+            var mapped = mapper.Map<List<CommentResult>>(items);
+            return BaseResult<PagedResult<CommentResult>>.Success(
+                PagedResult<CommentResult>.Create(mapped, page, pageSize, totalCount));
         }
     }
 }

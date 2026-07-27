@@ -11,7 +11,12 @@ namespace ZenBlog.Application.Features.Blogs.Mapping
         public BlogMappingProfile()
         {
             CreateMap<Domain.Entities.Blog, GetBlogsQueryResult>().ReverseMap();
-            CreateMap<Domain.Entities.Blog, CreateBlogCommand>().ReverseMap();
+            CreateMap<CreateBlogCommand, Domain.Entities.Blog>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.UserId, opt => opt.Ignore())
+                .ForMember(dest => dest.User, opt => opt.Ignore())
+                .ForMember(dest => dest.Category, opt => opt.Ignore())
+                .ForMember(dest => dest.Comments, opt => opt.Ignore());
             CreateMap<Domain.Entities.Category, CategoryDto>();
 
             // For update — map command onto existing entity, ignore fields not in command

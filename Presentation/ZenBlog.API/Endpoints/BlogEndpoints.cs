@@ -11,9 +11,15 @@ namespace ZenBlog.API.Endpoints
         {
              var blogs = erb.MapGroup("/blogs").WithTags("Blogs");
 
-            blogs.MapGet("", async (IMediator _mediator) =>
+            blogs.MapGet("", async (
+                IMediator _mediator,
+                int? page,
+                int? pageSize,
+                string? search,
+                Guid? categoryId) =>
             {
-                var response = await _mediator.Send(new GetBlogsQuery());
+                var response = await _mediator.Send(
+                    new GetBlogsQuery(page, pageSize, search, categoryId));
                 return response.ToHttpResult();
             });
 

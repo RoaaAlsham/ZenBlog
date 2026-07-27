@@ -11,9 +11,14 @@ namespace ZenBlog.API.Endpoints
         {
             var comments = erb.MapGroup("/comments").WithTags("Comments");
 
-            comments.MapGet("/blog/{blogId}", async (IMediator mediator, Guid blogId) =>
+            comments.MapGet("/blog/{blogId}", async (
+                IMediator mediator,
+                Guid blogId,
+                int? page,
+                int? pageSize) =>
             {
-                var response = await mediator.Send(new GetCommentsByBlogIdQuery(blogId));
+                var response = await mediator.Send(
+                    new GetCommentsByBlogIdQuery(blogId, page, pageSize));
                 return response.ToHttpResult();
             });
 

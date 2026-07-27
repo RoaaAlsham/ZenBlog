@@ -14,11 +14,12 @@ namespace ZenBlog.Application.Features.Comments.Handlers
         public async Task<BaseResult<CommentResult>> Handle(
             GetCommentByIdQuery request, CancellationToken cancellationToken)
         {
-            var comment = await repo.GetSingleWithIncludesAsync(
+            var comment = await repo.GetSingleWithIncludePathsAsync(
                 c => c.Id == request.Id,
                 cancellationToken,
-                c => c.User,
-                c => c.Replies);
+                "User",
+                "Replies",
+                "Replies.User");
 
             if (comment == null)
                 return BaseResult<CommentResult>.NotFound($"Comment with id {request.Id} not found.");

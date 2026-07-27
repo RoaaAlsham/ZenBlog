@@ -86,5 +86,49 @@ namespace ZenBlog.Persistence.Concrete
                 query = query.Include(include);
             return await query.FirstOrDefaultAsync(filter, ct);
         }
+
+        public async Task<List<TEntity>> GetAllWithIncludePathsAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default,
+            params string[] includePaths)
+        {
+            IQueryable<TEntity> query = _dbSet.AsNoTracking();
+            foreach (var path in includePaths)
+                query = query.Include(path);
+            return await query.Where(filter).ToListAsync(ct);
+        }
+
+        public async Task<TEntity?> GetSingleWithIncludePathsAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default,
+            params string[] includePaths)
+        {
+            IQueryable<TEntity> query = _dbSet.AsNoTracking();
+            foreach (var path in includePaths)
+                query = query.Include(path);
+            return await query.FirstOrDefaultAsync(filter, ct);
+        }
+
+        public async Task<(List<TEntity> Items, int TotalCount)> GetPagedWithIncludePathsAsync(
+            Expression<Func<TEntity, bool>> filter,
+            int page,
+            int pageSize,
+            CancellationToken ct = default,
+            params string[] includePaths)
+        {
+            IQueryable<TEntity> filtered = _dbSet.AsNoTracking().Where(filter);
+            var totalCount = await filtered.CountAsync(ct);
+
+            IQueryable<TEntity> query = filtered.OrderByDescending(e => e.CreatedAt);
+            foreach (var path in includePaths)
+                query = query.Include(path);
+
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return (items, totalCount);
+        }
     }
 }

@@ -18,8 +18,9 @@ namespace ZenBlog.Application.Features.Comments.Mapping
 
             CreateMap<CreateCommentCommand, Comment>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
+                .ForMember(dest => dest.UserId, opt => opt.Ignore())
                 .ForMember(dest => dest.Replies, opt => opt.Ignore())
-                .ForMember(dest => dest.User, opt => opt.Ignore()) // Command has UserId (string), not the full User navigation property
+                .ForMember(dest => dest.User, opt => opt.Ignore())
                 .ForMember(dest => dest.Blog, opt => opt.Ignore());
 
             CreateMap<UpdateCommentCommand, Comment>()
