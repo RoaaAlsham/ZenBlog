@@ -1,5 +1,4 @@
 using AutoMapper;
-using Microsoft.AspNetCore.Identity;
 using Moq;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
@@ -22,7 +21,7 @@ public class UpdateBlogCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new UpdateBlogCommand
         {
@@ -40,17 +39,18 @@ public class UpdateBlogCommandHandlerTests
             UserId = "blog-owner-id",
             CoverImagePublicId = "zenblog/covers/old"
         };
-        var caller = CreateUser("different-user-id");
+        var callerId = "different-user-id";
 
         repository
             .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(blog);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
-        currentUser.SetupGet(x => x.UserId).Returns(caller.Id);
-        userManager.Setup(x => x.FindByIdAsync(caller.Id)).ReturnsAsync(caller);
-        userManager.Setup(x => x.GetRolesAsync(caller)).ReturnsAsync((IList<string>)["User"]);
+        currentUser.SetupGet(x => x.UserId).Returns(callerId);
+        roleChecker
+            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
-        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, userManager);
+        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.Equal(ResultStatus.Forbidden, result.Status);
@@ -70,7 +70,7 @@ public class UpdateBlogCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var ownerId = "blog-owner-id";
         var command = new UpdateBlogCommand
@@ -113,7 +113,7 @@ public class UpdateBlogCommandHandlerTests
             .Returns(Task.CompletedTask);
         mapper.Setup(x => x.Map<GetBlogsQueryResult>(blog)).Returns(mappedResult);
 
-        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, userManager);
+        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -123,7 +123,9 @@ public class UpdateBlogCommandHandlerTests
         imageStorage.Verify(
             x => x.DeleteAsync("zenblog/covers/old", It.IsAny<CancellationToken>()),
             Times.Once);
-        userManager.Verify(x => x.GetRolesAsync(It.IsAny<AppUser>()), Times.Never);
+        roleChecker.Verify(
+            x => x.IsInRoleAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -134,7 +136,7 @@ public class UpdateBlogCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var ownerId = "blog-owner-id";
         var command = new UpdateBlogCommand
@@ -164,7 +166,7 @@ public class UpdateBlogCommandHandlerTests
         repository.Setup(x => x.UpdateAsync(blog)).Returns(Task.CompletedTask);
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(false);
 
-        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, userManager);
+        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -182,7 +184,7 @@ public class UpdateBlogCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var userManager = CreateUserManagerMock();
+        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new UpdateBlogCommand
         {
@@ -199,7 +201,7 @@ public class UpdateBlogCommandHandlerTests
             CategoryId = command.CategoryId,
             UserId = "blog-owner-id"
         };
-        var admin = CreateUser("admin-id");
+        var adminId = "admin-id";
         var mappedResult = new GetBlogsQueryResult
         {
             Title = command.Title,
@@ -212,15 +214,16 @@ public class UpdateBlogCommandHandlerTests
             .Setup(x => x.GetByIdAsync(command.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(blog);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
-        currentUser.SetupGet(x => x.UserId).Returns(admin.Id);
-        userManager.Setup(x => x.FindByIdAsync(admin.Id)).ReturnsAsync(admin);
-        userManager.Setup(x => x.GetRolesAsync(admin)).ReturnsAsync((IList<string>)["Admin"]);
+        currentUser.SetupGet(x => x.UserId).Returns(adminId);
+        roleChecker
+            .Setup(x => x.IsInRoleAsync(adminId, "Admin", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         mapper.Setup(x => x.Map(command, blog)).Returns(blog);
         repository.Setup(x => x.UpdateAsync(blog)).Returns(Task.CompletedTask);
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
         mapper.Setup(x => x.Map<GetBlogsQueryResult>(blog)).Returns(mappedResult);
 
-        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, userManager);
+        var sut = CreateSut(repository, mapper, unitOfWork, imageStorage, currentUser, roleChecker);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -233,28 +236,12 @@ public class UpdateBlogCommandHandlerTests
         Mock<IUnitOfWork> unitOfWork,
         Mock<IImageStorageService> imageStorage,
         Mock<ICurrentUserService> currentUser,
-        Mock<UserManager<AppUser>> userManager) =>
+        Mock<IRoleChecker> roleChecker) =>
         new(
             repository.Object,
             mapper.Object,
             unitOfWork.Object,
             imageStorage.Object,
             currentUser.Object,
-            userManager.Object);
-
-    private static AppUser CreateUser(string id) => new()
-    {
-        Id = id,
-        Email = $"{id}@example.com",
-        UserName = $"{id}@example.com",
-        FirstName = "Test",
-        LastName = "User"
-    };
-
-    private static Mock<UserManager<AppUser>> CreateUserManagerMock()
-    {
-        var store = new Mock<IUserStore<AppUser>>();
-        return new Mock<UserManager<AppUser>>(
-            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
-    }
+            roleChecker.Object);
 }
