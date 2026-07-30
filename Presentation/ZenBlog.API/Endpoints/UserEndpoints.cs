@@ -59,6 +59,12 @@ namespace ZenBlog.API.Endpoints
                 var result = await mediator.Send(new DeleteUserCommand(id));
                 return result.ToHttpNoContentResult();
             }).RequireAuthorization(policy => policy.RequireRole("Admin"));
+
+            users.MapPost("/{id}/roles/admin", async (IMediator mediator, string id) =>
+            {
+                var result = await mediator.Send(new PromoteUserToAdminCommand(id));
+                return result.ToHttpResult();
+            }).RequireAuthorization(policy => policy.RequireRole("Admin"));
         }
     }
 }

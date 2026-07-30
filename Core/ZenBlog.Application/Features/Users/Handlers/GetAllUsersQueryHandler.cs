@@ -6,7 +6,9 @@ using ZenBlog.Application.Features.Users.Results;
 
 namespace ZenBlog.Application.Features.Users.Handlers
 {
-    public class GetAllUsersQueryHandler(IUserQueryService userQuery)
+    public class GetAllUsersQueryHandler(
+        IUserQueryService userQuery,
+        IRoleChecker roleChecker)
         : IRequestHandler<GetAllUsersQuery, BaseResult<IEnumerable<GetAllUsersQueryResult>>>
     {
         public async Task<BaseResult<IEnumerable<GetAllUsersQueryResult>>> Handle(
@@ -14,13 +16,23 @@ namespace ZenBlog.Application.Features.Users.Handlers
         {
             var users = await userQuery.GetAllAsync(cancellationToken);
 
-            var result = users.Select(u => new GetAllUsersQueryResult(
-                Id: u.Id,
-                Username: u.UserName!,
-                Email: u.Email!,
-                FullName: $"{u.FirstName} {u.LastName}",
-                ImageUrl: u.ImageUrl
-            )).ToList();
+            var result = new List<GetAllUsersQueryResult>();
+            foreach (var u in users)
+            {
+                var isAdmin = await roleChecker.IsInRoleAsync(
+                    u.Id,
+                    UserAccountHardDelete.AdminRoleName,
+                    cancellationToken);
+
+                result.Add(new GetAllUsersQueryResult(
+                    Id: u.Id,
+                    Username: u.UserName!,
+                    Email: u.Email!,
+                    FullName: $"{u.FirstName} {u.LastName}",
+                    ImageUrl: u.ImageUrl,
+                    IsAdmin: isAdmin
+                ));
+            }
 
             return BaseResult<IEnumerable<GetAllUsersQueryResult>>.Success(result);
         }

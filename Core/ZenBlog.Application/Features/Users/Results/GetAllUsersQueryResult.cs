@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ZenBlog.Application.Features.Users.Results
+﻿namespace ZenBlog.Application.Features.Users.Results
 {
     public sealed record GetAllUsersQueryResult(
         string Id,
         string Username,
         string Email,
         string FullName,
-        string? ImageUrl
+        string? ImageUrl,
+        bool IsAdmin
     );
 }

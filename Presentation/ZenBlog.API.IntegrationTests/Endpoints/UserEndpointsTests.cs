@@ -195,4 +195,63 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         });
         Assert.Equal(HttpStatusCode.Unauthorized, loginResponse.StatusCode);
     }
+
+    [Fact]
+    public async Task PromoteUserToAdmin_Unauthenticated_ReturnsUnauthorized()
+    {
+        _client.UseBearerToken(null);
+        var response = await _client.PostAsync($"/api/users/{Guid.NewGuid()}/roles/admin", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PromoteUserToAdmin_NonAdmin_ReturnsForbidden()
+    {
+        var user = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "promote-nonadmin@example.com",
+            "Password123!");
+        _client.UseBearerToken(user.AccessToken);
+
+        var response = await _client.PostAsync($"/api/users/{Guid.NewGuid()}/roles/admin", null);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PromoteUserToAdmin_AsAdmin_AssignsRole_AndTokenIncludesAdminOnRefresh()
+    {
+        const string targetPassword = "Password123!";
+
+        var admin = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "promote-admin@example.com",
+            "Password123!");
+        await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
+        admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
+
+        var target = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory,
+            _client,
+            "promote-target@example.com",
+            targetPassword);
+
+        _client.UseBearerToken(admin.AccessToken);
+        var response = await _client.PostAsync($"/api/users/{target.Id}/roles/admin", null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var listResponse = await _client.GetAsync("/api/users/");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        var users = await listResponse.Content.ReadFromJsonAsync<List<GetAllUsersQueryResult>>(JsonOptions);
+        Assert.NotNull(users);
+        var listedTarget = Assert.Single(users, u => u.Id == target.Id);
+        Assert.True(listedTarget.IsAdmin);
+
+        target.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, target.Id);
+        _client.UseBearerToken(target.AccessToken);
+
+        var usersAsPromoted = await _client.GetAsync("/api/users/");
+        Assert.Equal(HttpStatusCode.OK, usersAsPromoted.StatusCode);
+    }
 }

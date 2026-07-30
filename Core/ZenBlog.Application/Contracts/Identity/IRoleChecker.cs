@@ -7,4 +7,9 @@ public interface IRoleChecker
     Task<bool> IsInRoleAsync(string userId, string role, CancellationToken cancellationToken = default);
 
     Task<int> CountUsersInRoleAsync(string role, CancellationToken cancellationToken = default);
+
+    Task<IdentityOperationResult> AddToRoleAsync(
+        string userId,
+        string role,
+        CancellationToken cancellationToken = default);
 }
