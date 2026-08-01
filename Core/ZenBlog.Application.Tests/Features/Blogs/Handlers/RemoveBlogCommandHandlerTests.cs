@@ -5,6 +5,7 @@ using ZenBlog.Application.Contracts.Media;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Application.Features.Blogs.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Blogs.Handlers;
@@ -40,12 +41,16 @@ public class RemoveBlogCommandHandlerTests
             .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new RemoveBlogCommandHandler(
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
             roleChecker.Object,
-            imageStorage.Object);
+            imageStorage.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 
@@ -85,12 +90,16 @@ public class RemoveBlogCommandHandlerTests
         repository.Setup(x => x.DeleteAsync(blog)).Returns(Task.CompletedTask);
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(false);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new RemoveBlogCommandHandler(
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
             roleChecker.Object,
-            imageStorage.Object);
+            imageStorage.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 
@@ -132,12 +141,16 @@ public class RemoveBlogCommandHandlerTests
             .Setup(x => x.DeleteAsync("zenblog/covers/x", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new RemoveBlogCommandHandler(
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
             roleChecker.Object,
-            imageStorage.Object);
+            imageStorage.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 

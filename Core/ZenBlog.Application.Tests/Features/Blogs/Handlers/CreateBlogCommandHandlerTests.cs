@@ -4,6 +4,7 @@ using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Application.Features.Blogs.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Blogs.Handlers;
@@ -45,6 +46,9 @@ public class CreateBlogCommandHandlerTests
         currentUser
             .SetupGet(x => x.UserId)
             .Returns(authenticatedUserId);
+        currentUser
+            .SetupGet(x => x.IsAuthenticated)
+            .Returns(true);
         repository
             .Setup(x => x.CreateAsync(It.IsAny<Blog>()))
             .Callback<Blog>(blog => createdEntity = blog)
@@ -53,11 +57,15 @@ public class CreateBlogCommandHandlerTests
             .Setup(x => x.SaveChangesAsync())
             .ReturnsAsync(true);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new CreateBlogCommandHandler(
             repository.Object,
             mapper.Object,
             unitOfWork.Object,
-            currentUser.Object);
+            currentUser.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 

@@ -2,7 +2,9 @@
 using MediatR;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Contracts.Persistence;
+using ZenBlog.Application.Features.Monitoring;
 using ZenBlog.Application.Features.Settings;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Results;
@@ -15,7 +17,8 @@ namespace ZenBlog.Application.Features.Users.Handlers
         IUserAccountService userAccount,
         IMapper mapper,
         IRepository<SiteSettings> settingsRepository,
-        IUnitOfWork unitOfWork) : IRequestHandler<CreateUserCommand, BaseResult<CreateUserResult>>
+        IUnitOfWork unitOfWork,
+        IActivityLogger activityLogger) : IRequestHandler<CreateUserCommand, BaseResult<CreateUserResult>>
     {
 
         public async Task<BaseResult<CreateUserResult>> Handle(CreateUserCommand request, CancellationToken cancellationToken)
@@ -45,13 +48,21 @@ namespace ZenBlog.Application.Features.Users.Handlers
                 return BaseResult<CreateUserResult>.Failure(errors);
             }
 
-        
+            var fullName = $"{user.FirstName} {user.LastName}";
+            await activityLogger.LogAsync(
+                ActivityActions.AuthRegistered,
+                $"Registered user '{user.UserName}'",
+                user.Id,
+                fullName,
+                "User",
+                user.Id,
+                cancellationToken: cancellationToken);
 
             return BaseResult<CreateUserResult>.Success(new CreateUserResult(
             Id: user.Id,
             Username: user.UserName!,
             Email: user.Email!,
-            FullName: $"{user.FirstName} {user.LastName}",
+            FullName: fullName,
             CreatedAt: DateTime.UtcNow
              ));
 

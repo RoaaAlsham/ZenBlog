@@ -1,7 +1,9 @@
 using MediatR;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Contracts.Persistence;
+using ZenBlog.Application.Features.Monitoring;
 using ZenBlog.Application.Features.Settings.Commands;
 using ZenBlog.Application.Features.Settings.Results;
 using ZenBlog.Domain.Entities;
@@ -12,7 +14,9 @@ public class UpdateSiteSettingsCommandHandler(
     IRepository<SiteSettings> repository,
     IUnitOfWork unitOfWork,
     ICurrentUserService currentUser,
-    IRoleChecker roleChecker)
+    IRoleChecker roleChecker,
+    IUserQueryService userQuery,
+    IActivityLogger activityLogger)
     : IRequestHandler<UpdateSiteSettingsCommand, BaseResult<SiteSettingsResult>>
 {
     public async Task<BaseResult<SiteSettingsResult>> Handle(
@@ -45,6 +49,16 @@ public class UpdateSiteSettingsCommandHandler(
         {
             return BaseResult<SiteSettingsResult>.Failure("Failed to update site settings.");
         }
+
+        var (actorId, actorName) = await ActivityActor.ResolveAsync(currentUser, userQuery, cancellationToken);
+        await activityLogger.LogAsync(
+            ActivityActions.SettingsUpdated,
+            $"Updated site settings (allowRegistrations={settings.AllowRegistrations})",
+            actorId,
+            actorName,
+            nameof(SiteSettings),
+            settings.Id.ToString(),
+            cancellationToken: cancellationToken);
 
         return BaseResult<SiteSettingsResult>.Success(
             new SiteSettingsResult(settings.AllowRegistrations));

@@ -19,6 +19,8 @@ namespace ZenBlog.Persistence.Context
         public DbSet<Comment> Comments { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<SiteSettings> SiteSettings { get; set; }
+        public DbSet<ActivityLog> ActivityLogs { get; set; }
+        public DbSet<SecurityRequestLog> SecurityRequestLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -33,6 +35,27 @@ namespace ZenBlog.Persistence.Context
                     CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                 });
+            });
+
+            modelBuilder.Entity<ActivityLog>(entity =>
+            {
+                entity.HasIndex(a => a.OccurredAtUtc);
+                entity.HasIndex(a => new { a.Action, a.OccurredAtUtc });
+                entity.Property(a => a.Action).HasMaxLength(100);
+                entity.Property(a => a.ActorUserId).HasMaxLength(450);
+                entity.Property(a => a.ActorDisplayName).HasMaxLength(256);
+                entity.Property(a => a.EntityType).HasMaxLength(100);
+                entity.Property(a => a.EntityId).HasMaxLength(450);
+                entity.Property(a => a.Summary).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<SecurityRequestLog>(entity =>
+            {
+                entity.HasIndex(s => s.OccurredAtUtc);
+                entity.HasIndex(s => new { s.EventType, s.OccurredAtUtc });
+                entity.Property(s => s.SourceIp).HasMaxLength(64);
+                entity.Property(s => s.Host).HasMaxLength(256);
+                entity.Property(s => s.Path).HasMaxLength(2048);
             });
 
             modelBuilder.Entity<Blog>(entity =>

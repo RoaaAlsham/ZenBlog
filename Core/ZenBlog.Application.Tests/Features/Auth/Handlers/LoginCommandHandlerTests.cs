@@ -3,6 +3,7 @@ using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Auth.Commands;
 using ZenBlog.Application.Features.Auth.Handlers;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Auth.Handlers;
@@ -32,7 +33,8 @@ public class LoginCommandHandlerTests
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
-            unitOfWork.Object);
+            unitOfWork.Object,
+            MonitoringMocks.SecurityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 
@@ -76,7 +78,8 @@ public class LoginCommandHandlerTests
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
-            unitOfWork.Object);
+            unitOfWork.Object,
+            MonitoringMocks.SecurityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 
@@ -144,7 +147,8 @@ public class LoginCommandHandlerTests
             tokenGenerator.Object,
             refreshTokenService.Object,
             refreshTokenRepository.Object,
-            unitOfWork.Object);
+            unitOfWork.Object,
+            MonitoringMocks.SecurityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 

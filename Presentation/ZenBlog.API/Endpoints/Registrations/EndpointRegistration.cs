@@ -11,6 +11,7 @@
             erb.RegisterAuthEndpoints();
             erb.RegisterSettingsEndpoints();
             erb.RegisterMediaEndpoints();
+            erb.RegisterMonitoringEndpoints();
         }
     }
 }

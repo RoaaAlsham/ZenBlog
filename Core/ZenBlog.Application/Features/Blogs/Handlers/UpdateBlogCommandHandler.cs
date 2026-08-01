@@ -3,10 +3,12 @@ using MediatR;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Application.Features.Blogs.Results;
 using ZenBlog.Application.Features.Media;
+using ZenBlog.Application.Features.Monitoring;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Features.Blogs.Handlers
@@ -17,7 +19,9 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         IUnitOfWork uow,
         IImageStorageService imageStorage,
         ICurrentUserService currentUser,
-        IRoleChecker roleChecker)
+        IRoleChecker roleChecker,
+        IUserQueryService userQuery,
+        IActivityLogger activityLogger)
         : IRequestHandler<UpdateBlogCommand, BaseResult<GetBlogsQueryResult>>
     {
         public async Task<BaseResult<GetBlogsQueryResult>> Handle(
@@ -62,6 +66,16 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             {
                 await imageStorage.DeleteAsync(oldPublicId, cancellationToken);
             }
+
+            var (actorId, actorName) = await ActivityActor.ResolveAsync(currentUser, userQuery, cancellationToken);
+            await activityLogger.LogAsync(
+                ActivityActions.BlogUpdated,
+                $"Updated blog '{blog.Title}'",
+                actorId,
+                actorName,
+                nameof(Blog),
+                blog.Id.ToString(),
+                cancellationToken: cancellationToken);
 
             return BaseResult<GetBlogsQueryResult>.Success(mapper.Map<GetBlogsQueryResult>(blog));
         }

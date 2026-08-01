@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Auth.Commands;
 using ZenBlog.Application.Features.Auth.Results;
@@ -15,7 +16,8 @@ namespace ZenBlog.Application.Features.Auth.Handlers
         IJwtTokenGenerator tokenGenerator,
         IRefreshTokenService refreshTokenService,
         IRepository<RefreshToken> refreshTokenRepository,
-        IUnitOfWork unitOfWork) : IRequestHandler<LoginCommand, BaseResult<LoginResult>>
+        IUnitOfWork unitOfWork,
+        ISecurityRequestLogger securityRequestLogger) : IRequestHandler<LoginCommand, BaseResult<LoginResult>>
     {
         public async Task<BaseResult<LoginResult>> Handle(LoginCommand request, CancellationToken cancellationToken)
         {
@@ -24,12 +26,20 @@ namespace ZenBlog.Application.Features.Auth.Handlers
             {
                 // Deliberately the SAME message as a wrong password below:
                 // never reveal whether the email exists (avoids user-enumeration attacks).
+                await securityRequestLogger.LogAsync(
+                    SecurityEventType.LoginFailure,
+                    statusCode: 401,
+                    cancellationToken: cancellationToken);
                 return BaseResult<LoginResult>.Unauthorized("Invalid email or password.");
             }
 
             var passwordValid = await userAccount.CheckPasswordAsync(user, request.Password, cancellationToken);
             if (!passwordValid)
             {
+                await securityRequestLogger.LogAsync(
+                    SecurityEventType.LoginFailure,
+                    statusCode: 401,
+                    cancellationToken: cancellationToken);
                 return BaseResult<LoginResult>.Unauthorized("Invalid email or password.");
             }
 
@@ -48,6 +58,11 @@ namespace ZenBlog.Application.Features.Auth.Handlers
             {
                 return BaseResult<LoginResult>.Failure("Failed to complete login.");
             }
+
+            await securityRequestLogger.LogAsync(
+                SecurityEventType.LoginSuccess,
+                statusCode: 200,
+                cancellationToken: cancellationToken);
 
             return BaseResult<LoginResult>.Success(
                 new LoginResult(

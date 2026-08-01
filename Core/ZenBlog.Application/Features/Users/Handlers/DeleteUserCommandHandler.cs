@@ -2,7 +2,9 @@ using MediatR;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Contracts.Persistence;
+using ZenBlog.Application.Features.Monitoring;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Domain.Entities;
 
@@ -16,7 +18,8 @@ public class DeleteUserCommandHandler(
     IRepository<Comment> commentRepository,
     IRepository<Blog> blogRepository,
     IImageStorageService imageStorage,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IActivityLogger activityLogger)
     : IRequestHandler<DeleteUserCommand, BaseResult<bool>>
 {
     public async Task<BaseResult<bool>> Handle(
@@ -80,12 +83,25 @@ public class DeleteUserCommandHandler(
             cancellationToken);
         _ = await unitOfWork.SaveChangesAsync();
 
+        var targetUserName = target.UserName;
+        var targetId = target.Id;
+
         var deleteResult = await userAccount.DeleteAsync(target, cancellationToken);
         if (!deleteResult.Succeeded)
         {
             var errors = string.Join(", ", deleteResult.Errors);
             return BaseResult<bool>.Failure(errors);
         }
+
+        var (actorId, actorName) = await ActivityActor.ResolveAsync(currentUser, userQuery, cancellationToken);
+        await activityLogger.LogAsync(
+            ActivityActions.UserDeleted,
+            $"Deleted user '{targetUserName}'",
+            actorId,
+            actorName,
+            "User",
+            targetId,
+            cancellationToken: cancellationToken);
 
         return BaseResult<bool>.Success(true);
     }

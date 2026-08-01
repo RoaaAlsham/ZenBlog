@@ -57,6 +57,10 @@ namespace ZenBlog.Application.Contracts.Persistence
             int pageSize,
             CancellationToken ct = default,
             params string[] includePaths);
+
+        Task<int> CountAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default);
     }
 
 

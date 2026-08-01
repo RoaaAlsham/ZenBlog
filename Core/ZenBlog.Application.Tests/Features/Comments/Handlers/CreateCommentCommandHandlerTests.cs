@@ -5,6 +5,7 @@ using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Comments.Commands;
 using ZenBlog.Application.Features.Comments.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Comments.Handlers;
@@ -64,6 +65,9 @@ public class CreateCommentCommandHandlerTests
         currentUser
             .SetupGet(x => x.UserId)
             .Returns(authenticatedUserId);
+        currentUser
+            .SetupGet(x => x.IsAuthenticated)
+            .Returns(true);
         repository
             .Setup(x => x.CreateAsync(It.IsAny<Comment>()))
             .Callback<Comment>(comment => createdEntity = comment)
@@ -72,12 +76,16 @@ public class CreateCommentCommandHandlerTests
             .Setup(x => x.SaveChangesAsync())
             .ReturnsAsync(true);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new CreateCommentCommandHandler(
             repository.Object,
             blogRepository.Object,
             unitOfWork.Object,
             mapper.Object,
-            currentUser.Object);
+            currentUser.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 
@@ -111,12 +119,16 @@ public class CreateCommentCommandHandlerTests
             .Setup(x => x.GetByIdAsync(command.BlogId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((Blog?)null);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new CreateCommentCommandHandler(
             repository.Object,
             blogRepository.Object,
             unitOfWork.Object,
             mapper.Object,
-            currentUser.Object);
+            currentUser.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 
@@ -162,12 +174,16 @@ public class CreateCommentCommandHandlerTests
                 UserId = "parent-author"
             });
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new CreateCommentCommandHandler(
             repository.Object,
             blogRepository.Object,
             unitOfWork.Object,
             mapper.Object,
-            currentUser.Object);
+            currentUser.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 

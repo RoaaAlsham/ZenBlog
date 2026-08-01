@@ -1,6 +1,8 @@
 using MediatR;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Monitoring;
+using ZenBlog.Application.Features.Monitoring;
 using ZenBlog.Application.Features.Users.Commands;
 
 namespace ZenBlog.Application.Features.Users.Handlers;
@@ -8,7 +10,8 @@ namespace ZenBlog.Application.Features.Users.Handlers;
 public class PromoteUserToAdminCommandHandler(
     IUserQueryService userQuery,
     IRoleChecker roleChecker,
-    ICurrentUserService currentUser)
+    ICurrentUserService currentUser,
+    IActivityLogger activityLogger)
     : IRequestHandler<PromoteUserToAdminCommand, BaseResult<bool>>
 {
     public async Task<BaseResult<bool>> Handle(
@@ -56,6 +59,16 @@ public class PromoteUserToAdminCommandHandler(
             var errors = string.Join(", ", addResult.Errors);
             return BaseResult<bool>.Failure(errors);
         }
+
+        var (actorId, actorName) = await ActivityActor.ResolveAsync(currentUser, userQuery, cancellationToken);
+        await activityLogger.LogAsync(
+            ActivityActions.UserPromotedToAdmin,
+            $"Promoted '{target.UserName}' to Admin",
+            actorId,
+            actorName,
+            "User",
+            target.Id,
+            cancellationToken: cancellationToken);
 
         return BaseResult<bool>.Success(true);
     }

@@ -7,6 +7,7 @@ using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
 using ZenBlog.Application.Features.Blogs.Handlers;
 using ZenBlog.Application.Features.Blogs.Results;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Blogs.Handlers;
@@ -243,5 +244,7 @@ public class UpdateBlogCommandHandlerTests
             unitOfWork.Object,
             imageStorage.Object,
             currentUser.Object,
-            roleChecker.Object);
+            roleChecker.Object,
+            new Mock<IUserQueryService>(MockBehavior.Loose).Object,
+            MonitoringMocks.ActivityLogger().Object);
 }

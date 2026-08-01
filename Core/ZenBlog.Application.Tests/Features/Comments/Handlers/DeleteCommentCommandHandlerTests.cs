@@ -5,6 +5,7 @@ using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Comments.Commands;
 using ZenBlog.Application.Features.Comments.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Comments.Handlers;
@@ -168,7 +169,13 @@ public class DeleteCommentCommandHandlerTests
         Mock<IUnitOfWork> unitOfWork,
         Mock<ICurrentUserService> currentUser,
         Mock<IRoleChecker> roleChecker) =>
-        new(repository.Object, unitOfWork.Object, currentUser.Object, roleChecker.Object);
+        new(
+            repository.Object,
+            unitOfWork.Object,
+            currentUser.Object,
+            roleChecker.Object,
+            new Mock<IUserQueryService>(MockBehavior.Loose).Object,
+            MonitoringMocks.ActivityLogger().Object);
 
     private static Comment CreateComment(Guid id, string userId) => new()
     {

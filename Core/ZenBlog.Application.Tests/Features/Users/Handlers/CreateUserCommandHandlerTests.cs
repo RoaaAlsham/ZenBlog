@@ -4,6 +4,7 @@ using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Users.Handlers;
@@ -32,7 +33,8 @@ public class CreateUserCommandHandlerTests
             userAccount.Object,
             mapper.Object,
             settingsRepository.Object,
-            unitOfWork.Object);
+            unitOfWork.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(ValidCommand(), CancellationToken.None);
 
@@ -83,7 +85,8 @@ public class CreateUserCommandHandlerTests
             userAccount.Object,
             mapper.Object,
             settingsRepository.Object,
-            unitOfWork.Object);
+            unitOfWork.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(command, CancellationToken.None);
 

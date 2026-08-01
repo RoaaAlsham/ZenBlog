@@ -7,6 +7,7 @@ using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Comments.Commands;
 using ZenBlog.Application.Features.Comments.Handlers;
 using ZenBlog.Application.Features.Comments.Results;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Comments.Handlers;
@@ -143,7 +144,9 @@ public class UpdateCommentCommandHandlerTests
             unitOfWork.Object,
             mapper.Object,
             currentUser.Object,
-            roleChecker.Object);
+            roleChecker.Object,
+            new Mock<IUserQueryService>(MockBehavior.Loose).Object,
+            MonitoringMocks.ActivityLogger().Object);
 
     private static Comment CreateComment(Guid id, string userId) => new()
     {

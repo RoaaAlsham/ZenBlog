@@ -6,7 +6,9 @@ using Scalar.AspNetCore;
 using ZenBlog.API.CustomMiddlewares;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Features;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Features.Media;
+using ZenBlog.Domain.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,6 +57,31 @@ builder.Services.AddOpenApi();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var httpContext = context.HttpContext;
+        var securityLogger = httpContext.RequestServices.GetService<ISecurityRequestLogger>();
+        if (securityLogger is not null)
+        {
+            var sourceIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var host = httpContext.Request.Host.Value ?? "unknown";
+            var path = httpContext.Request.Path.Value ?? "/";
+            if (httpContext.Request.QueryString.HasValue)
+            {
+                path += httpContext.Request.QueryString.Value;
+            }
+
+            await securityLogger.LogAsync(
+                SecurityEventType.RateLimited,
+                StatusCodes.Status429TooManyRequests,
+                sourceIp,
+                host,
+                path,
+                cancellationToken);
+        }
+
+        httpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+    };
 
     if (builder.Environment.IsEnvironment("Testing"))
     {

@@ -130,5 +130,12 @@ namespace ZenBlog.Persistence.Concrete
 
             return (items, totalCount);
         }
+
+        public async Task<int> CountAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default)
+        {
+            return await _dbSet.AsNoTracking().CountAsync(filter, ct);
+        }
     }
 }

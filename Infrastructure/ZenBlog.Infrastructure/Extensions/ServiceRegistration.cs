@@ -6,9 +6,11 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Models;
 using ZenBlog.Infrastructure.Identity;
 using ZenBlog.Infrastructure.Media;
+using ZenBlog.Infrastructure.Monitoring;
 
 namespace ZenBlog.Infrastructure.Extensions
 {
@@ -29,6 +31,9 @@ namespace ZenBlog.Infrastructure.Extensions
             services.AddScoped<IUserQueryService, UserQueryService>();
             services.AddScoped<IUserAccountService, UserAccountService>();
             services.AddScoped<IImageStorageService, CloudinaryImageStorageService>();
+            services.AddScoped<IClientRequestInfo, ClientRequestInfo>();
+            services.AddScoped<IActivityLogger, ActivityLogger>();
+            services.AddScoped<ISecurityRequestLogger, SecurityRequestLogger>();
 
             services.AddAuthentication(options =>
             {

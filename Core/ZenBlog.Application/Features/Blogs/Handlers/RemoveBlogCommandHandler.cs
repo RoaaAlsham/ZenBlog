@@ -2,8 +2,10 @@
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Media;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Blogs.Commands;
+using ZenBlog.Application.Features.Monitoring;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Features.Blogs.Handlers
@@ -13,7 +15,9 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUser,
         IRoleChecker roleChecker,
-        IImageStorageService imageStorage) : IRequestHandler<RemoveBlogCommand, BaseResult<bool>>
+        IImageStorageService imageStorage,
+        IUserQueryService userQuery,
+        IActivityLogger activityLogger) : IRequestHandler<RemoveBlogCommand, BaseResult<bool>>
     {
         public async Task<BaseResult<bool>> Handle(RemoveBlogCommand request, CancellationToken cancellationToken)
         {
@@ -38,6 +42,8 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             }
 
             var coverPublicId = blog.CoverImagePublicId;
+            var blogTitle = blog.Title;
+            var blogId = blog.Id;
 
             await repo.DeleteAsync(blog);
             var saved = await unitOfWork.SaveChangesAsync();
@@ -52,6 +58,16 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             {
                 await imageStorage.DeleteAsync(coverPublicId, cancellationToken);
             }
+
+            var (actorId, actorName) = await ActivityActor.ResolveAsync(currentUser, userQuery, cancellationToken);
+            await activityLogger.LogAsync(
+                ActivityActions.BlogDeleted,
+                $"Deleted blog '{blogTitle}'",
+                actorId,
+                actorName,
+                nameof(Blog),
+                blogId.ToString(),
+                cancellationToken: cancellationToken);
 
             return BaseResult<bool>.Success(true);
         }

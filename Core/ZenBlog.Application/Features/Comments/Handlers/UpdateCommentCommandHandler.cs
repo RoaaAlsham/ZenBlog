@@ -2,9 +2,11 @@
 using MediatR;
 using ZenBlog.Application.Base;
 using ZenBlog.Application.Contracts.Identity;
+using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Comments.Commands;
 using ZenBlog.Application.Features.Comments.Results;
+using ZenBlog.Application.Features.Monitoring;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Features.Comments.Handlers
@@ -14,7 +16,9 @@ namespace ZenBlog.Application.Features.Comments.Handlers
         IUnitOfWork uow,
         IMapper mapper,
         ICurrentUserService currentUser,
-        IRoleChecker roleChecker)
+        IRoleChecker roleChecker,
+        IUserQueryService userQuery,
+        IActivityLogger activityLogger)
         : IRequestHandler<UpdateCommentCommand, BaseResult<CommentResult>>
     {
         public async Task<BaseResult<CommentResult>> Handle(
@@ -50,6 +54,16 @@ namespace ZenBlog.Application.Features.Comments.Handlers
 
             if (!saved)
                 return BaseResult<CommentResult>.Failure("Failed to update comment.");
+
+            var (actorId, actorName) = await ActivityActor.ResolveAsync(currentUser, userQuery, cancellationToken);
+            await activityLogger.LogAsync(
+                ActivityActions.CommentUpdated,
+                $"Updated comment {comment.Id}",
+                actorId,
+                actorName,
+                nameof(Comment),
+                comment.Id.ToString(),
+                cancellationToken: cancellationToken);
 
             return BaseResult<CommentResult>.Success(mapper.Map<CommentResult>(comment));
         }

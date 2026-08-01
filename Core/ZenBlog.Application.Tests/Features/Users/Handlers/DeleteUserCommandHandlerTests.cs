@@ -7,6 +7,7 @@ using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Users;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Users.Handlers;
@@ -164,6 +165,9 @@ public class DeleteUserCommandHandlerTests
             .Setup(x => x.IsInRoleAsync(caller.Id, UserAccountHardDelete.AdminRoleName, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         userQuery
+            .Setup(x => x.FindByIdAsync(caller.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(caller);
+        userQuery
             .Setup(x => x.FindByIdAsync(target.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(target);
         roleChecker
@@ -214,7 +218,8 @@ public class DeleteUserCommandHandlerTests
             commentRepo.Object,
             blogRepo.Object,
             imageStorage.Object,
-            unitOfWork.Object);
+            unitOfWork.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
     private static AppUser CreateUser(string id) => new()
     {

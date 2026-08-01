@@ -4,6 +4,7 @@ using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Features.Users;
 using ZenBlog.Application.Features.Users.Commands;
 using ZenBlog.Application.Features.Users.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Users.Handlers;
@@ -132,6 +133,9 @@ public class PromoteUserToAdminCommandHandlerTests
             .Setup(x => x.IsInRoleAsync(caller.Id, UserAccountHardDelete.AdminRoleName, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         userQuery
+            .Setup(x => x.FindByIdAsync(caller.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(caller);
+        userQuery
             .Setup(x => x.FindByIdAsync(target.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(target);
         roleChecker
@@ -196,7 +200,11 @@ public class PromoteUserToAdminCommandHandlerTests
         Mock<IUserQueryService> userQuery,
         Mock<IRoleChecker> roleChecker,
         Mock<ICurrentUserService> currentUser) =>
-        new(userQuery.Object, roleChecker.Object, currentUser.Object);
+        new(
+            userQuery.Object,
+            roleChecker.Object,
+            currentUser.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
     private static AppUser CreateUser(string id) => new()
     {

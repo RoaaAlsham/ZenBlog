@@ -4,6 +4,7 @@ using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Application.Features.Settings.Commands;
 using ZenBlog.Application.Features.Settings.Handlers;
+using ZenBlog.Application.Tests.Helpers;
 using ZenBlog.Domain.Entities;
 
 namespace ZenBlog.Application.Tests.Features.Settings.Handlers;
@@ -25,11 +26,15 @@ public class UpdateSiteSettingsCommandHandlerTests
             .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new UpdateSiteSettingsCommandHandler(
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            roleChecker.Object);
+            roleChecker.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(new UpdateSiteSettingsCommand(true), CancellationToken.None);
 
@@ -65,11 +70,15 @@ public class UpdateSiteSettingsCommandHandlerTests
         repository.Setup(x => x.UpdateAsync(settings)).Returns(Task.CompletedTask);
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
 
+        var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
+
         var sut = new UpdateSiteSettingsCommandHandler(
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            roleChecker.Object);
+            roleChecker.Object,
+            userQuery.Object,
+            MonitoringMocks.ActivityLogger().Object);
 
         var result = await sut.Handle(new UpdateSiteSettingsCommand(true), CancellationToken.None);
 
