@@ -30,7 +30,15 @@ namespace ZenBlog.Application.Features.Blogs.Validators
 
             RuleFor(x => x.CoverImagePublicId)
                 .MaximumLength(512)
-                .When(x => !string.IsNullOrWhiteSpace(x.CoverImagePublicId));
+                .Must((command, publicId) =>
+                    CloudinaryImageRules.PublicIdMatchesDeliveryUrl(
+                        command.CoverImageUrl, publicId, cloudName))
+                .When(x => !string.IsNullOrWhiteSpace(x.CoverImagePublicId))
+                .WithMessage("CoverImagePublicId must match the CoverImageUrl delivery path.")
+                .Must(publicId => CloudinaryImageRules.HasFolderPrefix(
+                    publicId, ImageUploadLimits.FolderFor(ImageUploadPurpose.BlogCover)))
+                .When(x => !string.IsNullOrWhiteSpace(x.CoverImagePublicId))
+                .WithMessage("CoverImagePublicId must be under the zenblog/covers folder.");
         }
     }
 }

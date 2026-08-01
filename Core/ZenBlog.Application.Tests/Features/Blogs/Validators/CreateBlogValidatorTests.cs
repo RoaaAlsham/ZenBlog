@@ -73,6 +73,26 @@ public class CreateBlogValidatorTests
         result.ShouldNotHaveAnyValidationErrors();
     }
 
+    [Fact]
+    public void CoverImage_RejectsMismatchedPublicId()
+    {
+        var command = BuildValidCommand();
+        command.CoverImageUrl = "https://res.cloudinary.com/demo/image/upload/v1/zenblog/covers/mine.png";
+        command.CoverImagePublicId = "zenblog/covers/victim";
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor(x => x.CoverImagePublicId);
+    }
+
+    [Fact]
+    public void CoverImage_RejectsPublicIdOutsideCoversFolder()
+    {
+        var command = BuildValidCommand();
+        command.CoverImageUrl = "https://res.cloudinary.com/demo/image/upload/v1/zenblog/profiles/a.png";
+        command.CoverImagePublicId = "zenblog/profiles/a";
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor(x => x.CoverImagePublicId);
+    }
+
     private static CreateBlogCommand BuildValidCommand()
         => new()
         {

@@ -32,6 +32,14 @@ public class UpdateProfileCommandValidator : AbstractValidator<UpdateProfileComm
 
         RuleFor(x => x.ImagePublicId)
             .MaximumLength(512)
-            .When(x => !string.IsNullOrWhiteSpace(x.ImagePublicId));
+            .Must((command, publicId) =>
+                CloudinaryImageRules.PublicIdMatchesDeliveryUrl(
+                    command.ImageUrl, publicId, cloudName))
+            .When(x => !string.IsNullOrWhiteSpace(x.ImagePublicId))
+            .WithMessage("ImagePublicId must match the ImageUrl delivery path.")
+            .Must(publicId => CloudinaryImageRules.HasFolderPrefix(
+                publicId, ImageUploadLimits.FolderFor(ImageUploadPurpose.Profile)))
+            .When(x => !string.IsNullOrWhiteSpace(x.ImagePublicId))
+            .WithMessage("ImagePublicId must be under the zenblog/profiles folder.");
     }
 }

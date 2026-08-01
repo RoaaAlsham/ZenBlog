@@ -69,4 +69,32 @@ public class UpdateProfileCommandValidatorTests
         var result = _validator.TestValidate(unpaired);
         result.ShouldHaveValidationErrorFor(x => x);
     }
+
+    [Fact]
+    public void ImagePublicId_RejectsMismatchWithUrl()
+    {
+        var command = new UpdateProfileCommand
+        {
+            FirstName = "Zen",
+            LastName = "User",
+            ImageUrl = "https://res.cloudinary.com/demo/image/upload/v1/zenblog/profiles/mine.png",
+            ImagePublicId = "zenblog/profiles/victim"
+        };
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor(x => x.ImagePublicId);
+    }
+
+    [Fact]
+    public void ImagePublicId_RejectsPublicIdOutsideProfilesFolder()
+    {
+        var command = new UpdateProfileCommand
+        {
+            FirstName = "Zen",
+            LastName = "User",
+            ImageUrl = "https://res.cloudinary.com/demo/image/upload/v1/zenblog/covers/c.png",
+            ImagePublicId = "zenblog/covers/c"
+        };
+        var result = _validator.TestValidate(command);
+        result.ShouldHaveValidationErrorFor(x => x.ImagePublicId);
+    }
 }
