@@ -1,6 +1,7 @@
 ﻿
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ZenBlog.Application.Behaviors;
 using ZenBlog.Application.Features.Categories.Mapping;
@@ -21,15 +22,25 @@ namespace ZenBlog.Application.Extensions
 {
     public static class ServiceRegistration
     {
-        public static void AddApplication(this IServiceCollection services) {
+        public static void AddApplication(this IServiceCollection services, IConfiguration configuration)
+        {
+            var licenseKey = configuration["LuckyPenny:LicenseKey"];
+
             // AutoMapper — scans this assembly for all Profile classes
             services.AddAutoMapper(cfg =>
             {
+                if (!string.IsNullOrWhiteSpace(licenseKey))
+                    cfg.LicenseKey = licenseKey;
+
                 cfg.AddMaps(typeof(ServiceRegistration).Assembly);
             });
 
             // MediatR — scans same assembly for all IRequestHandler implementations
-            services.AddMediatR(cfg => {
+            services.AddMediatR(cfg =>
+            {
+                if (!string.IsNullOrWhiteSpace(licenseKey))
+                    cfg.LicenseKey = licenseKey;
+
                 cfg.RegisterServicesFromAssembly(typeof(CategoryMappingProfile).Assembly);
                 cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
             });

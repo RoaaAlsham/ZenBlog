@@ -48,7 +48,7 @@ builder.Services.AddCors(options =>
 
 // Add services to the container.
 builder.Services.AddPersistenceServices(builder.Configuration);
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
 builder.Services.AddControllers();
