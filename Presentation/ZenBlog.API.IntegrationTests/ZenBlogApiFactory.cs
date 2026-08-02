@@ -23,6 +23,7 @@ public class ZenBlogApiFactory : WebApplicationFactory<Program>
                 ["UseInMemoryDatabase"] = "true",
                 ["InMemoryDatabaseName"] = _databaseName,
                 ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=unused;Username=test;Password=test",
+                ["Cors:AllowedOrigins"] = "http://localhost",
                 ["JwtSettings:Secret"] = "integration-test-secret-key-32chars!",
                 ["JwtSettings:Issuer"] = "ZenBlogAPI",
                 ["JwtSettings:Audience"] = "ZenBlogClient",

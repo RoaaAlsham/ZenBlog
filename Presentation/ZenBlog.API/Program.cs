@@ -6,11 +6,21 @@ using Scalar.AspNetCore;
 using ZenBlog.API.CustomMiddlewares;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
 using ZenBlog.Application.Contracts.Monitoring;
 using ZenBlog.Application.Features.Media;
 using ZenBlog.Domain.Entities;
+using ZenBlog.Persistence.Context;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, _, configuration) =>
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .WriteTo.Console());
 
 // Make JSON property names case-insensitive (Next.js client sends camelCase).
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -26,23 +36,40 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = ImageUploadLimits.MultipartHardLimitBytes;
 });
 
-// ---------------------------------------------------------------------------
-// Verify Backend CORS Configuration (required for local Next.js testing)
-// ---------------------------------------------------------------------------
-// The zenblog_client runs on http://localhost:3000 and calls this API at
-// https://localhost:7117. Browsers block that cross-origin traffic unless we
-// explicitly allow the frontend origin below.
-//
-// If your Next.js port differs (e.g. 3001), add it to WithOrigins(...).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Trust Render (and similar) reverse proxies that terminate TLS.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+var corsOrigins = builder.Configuration["Cors:AllowedOrigins"]?
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? [];
+
+if (corsOrigins.Length == 0 && !builder.Environment.IsEnvironment("Testing"))
+{
+    throw new InvalidOperationException(
+        "Cors:AllowedOrigins is missing or empty. Set a comma-separated list of allowed frontend origins.");
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "https://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        if (corsOrigins.Length > 0)
+        {
+            policy.WithOrigins(corsOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
+        else
+        {
+            // Testing host supplies origins via factory config; empty is allowed only there.
+            policy.SetIsOriginAllowed(_ => false);
+        }
     });
 });
 
@@ -54,6 +81,16 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// Resolve the connection string from DI at check time so WebApplicationFactory
+// in-memory config (and env vars) are available; eager GetConnectionString here
+// runs before the test host finishes composing configuration.
+builder.Services.AddHealthChecks()
+    .AddNpgSql(sp =>
+        sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection is missing from configuration."));
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -153,6 +190,13 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+if (app.Environment.IsProduction())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
 await app.SeedIdentityDataAsync();
 
 // Configure the HTTP request pipeline.
@@ -161,6 +205,15 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
+app.UseForwardedHeaders();
+
+if (app.Environment.IsProduction())
+{
+    app.UseHsts();
+}
+
+app.UseSerilogRequestLogging();
 
 app.UseMiddleware<CustomExceptionHandlingMiddleware>();
 if (!app.Environment.IsEnvironment("Testing"))
@@ -183,9 +236,17 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthChecks("/health");
 app.MapControllers();
 app.MapGroup("/api").RegisterEndpoints();
 
-app.Run();
+try
+{
+    app.Run();
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 public partial class Program { }
