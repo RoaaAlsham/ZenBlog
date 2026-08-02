@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+.git
+.gitignore
+.vs/
+**/.vs/
+**/TestResults/
+.cursor/
+**/*Tests*/
+**/agent-transcripts/
+*.md
+!README.md
+.env
+.env.*
+**/appsettings.*.local.json

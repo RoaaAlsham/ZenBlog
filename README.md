@@ -568,6 +568,47 @@ Behavior:
 
 The password must satisfy Identity rules (8+ chars, uppercase, digit, special character), same as public registration.
 
+### Production / environment variables
+
+Deploy the API with Docker on Render (Postgres on Neon, client on Cloudflare Pages). Set these as environment variables (names only — never commit real values):
+
+| Environment variable | Required | Purpose |
+|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | Yes | Set to `Production` |
+| `PORT` | Yes (Render) | Listen port; image defaults to `8080` and binds via `ASPNETCORE_URLS` |
+| `ConnectionStrings__DefaultConnection` | Yes | Neon Postgres connection string |
+| `JwtSettings__Secret` | Yes | JWT signing key (≥32 characters) |
+| `JwtSettings__Issuer` | No | Defaults to `ZenBlogAPI` |
+| `JwtSettings__Audience` | No | Defaults to `ZenBlogClient` |
+| `JwtSettings__ExpiryMinutes` | No | Defaults to `60` |
+| `Cors__AllowedOrigins` | Yes (Production) | Comma-separated frontend origins (e.g. Cloudflare Pages URL). Credentials allowed. |
+| `CloudinarySettings__CloudName` | Yes (uploads) | Cloudinary cloud name |
+| `CloudinarySettings__ApiKey` | Yes (uploads) | Cloudinary API key |
+| `CloudinarySettings__ApiSecret` | Yes (uploads) | Cloudinary API secret |
+| `AdminSeed__Enabled` | No | Leave `false` in production unless bootstrapping once |
+| `AdminSeed__Email` | If seed enabled | Bootstrap admin email |
+| `AdminSeed__Password` | If seed enabled | Bootstrap admin password |
+| `AdminSeed__Username` | No | Optional override |
+| `AdminSeed__FirstName` | No | Optional override |
+| `AdminSeed__LastName` | No | Optional override |
+| `LuckyPenny__LicenseKey` | No | AutoMapper/MediatR license if needed |
+
+In Production the API applies EF migrations on startup (`Database.Migrate()`), exposes `GET /health` (Postgres check), and does **not** map OpenAPI/Scalar.
+
+Docker (from repo root):
+
+```bash
+docker build -t zenblog-api .
+docker run --rm -p 8080:8080 \
+  -e ASPNETCORE_ENVIRONMENT=Production \
+  -e ConnectionStrings__DefaultConnection="<neon-connection-string>" \
+  -e JwtSettings__Secret="<secret>" \
+  -e Cors__AllowedOrigins="https://<your-pages-host>" \
+  zenblog-api
+```
+
+Render health check path: `/health`.
+
 ---
 
 ## Running Migrations
