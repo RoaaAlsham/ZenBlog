@@ -2,7 +2,7 @@ namespace ZenBlog.Application.Features.Monitoring.Results;
 
 public sealed record MonitoringOverviewResult(
     int NewUsersLast24Hours,
-    int NewUsersLast30Days,
+    int NewUsersLast7Days,
     int NewBlogsLast24Hours,
     int NewBlogsLast30Days,
     int NewCommentsLast24Hours,

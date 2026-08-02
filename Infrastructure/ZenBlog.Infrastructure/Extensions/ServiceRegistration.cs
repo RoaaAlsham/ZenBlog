@@ -34,6 +34,8 @@ namespace ZenBlog.Infrastructure.Extensions
             services.AddScoped<IClientRequestInfo, ClientRequestInfo>();
             services.AddScoped<IActivityLogger, ActivityLogger>();
             services.AddScoped<ISecurityRequestLogger, SecurityRequestLogger>();
+            services.AddScoped<IMonitoringLogRetention, MonitoringLogRetention>();
+            services.AddHostedService<MonitoringLogRetentionService>();
 
             services.AddAuthentication(options =>
             {

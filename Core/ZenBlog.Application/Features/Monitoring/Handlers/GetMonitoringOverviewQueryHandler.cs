@@ -35,13 +35,14 @@ public sealed class GetMonitoringOverviewQueryHandler(
 
         var now = DateTime.UtcNow;
         var twentyFourHoursAgo = now.AddHours(-24);
+        var sevenDaysAgo = now - MonitoringRetention.MaxAge;
         var thirtyDaysAgo = now.AddDays(-30);
 
         var newUsersLast24Hours = await activityRepository.CountAsync(
             a => a.Action == ActivityActions.AuthRegistered && a.OccurredAtUtc >= twentyFourHoursAgo,
             cancellationToken);
-        var newUsersLast30Days = await activityRepository.CountAsync(
-            a => a.Action == ActivityActions.AuthRegistered && a.OccurredAtUtc >= thirtyDaysAgo,
+        var newUsersLast7Days = await activityRepository.CountAsync(
+            a => a.Action == ActivityActions.AuthRegistered && a.OccurredAtUtc >= sevenDaysAgo,
             cancellationToken);
 
         var newBlogsLast24Hours = await blogRepository.CountAsync(
@@ -68,7 +69,7 @@ public sealed class GetMonitoringOverviewQueryHandler(
         return BaseResult<MonitoringOverviewResult>.Success(
             new MonitoringOverviewResult(
                 newUsersLast24Hours,
-                newUsersLast30Days,
+                newUsersLast7Days,
                 newBlogsLast24Hours,
                 newBlogsLast30Days,
                 newCommentsLast24Hours,
