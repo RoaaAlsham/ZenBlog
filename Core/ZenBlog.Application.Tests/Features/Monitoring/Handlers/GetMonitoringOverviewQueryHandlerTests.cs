@@ -83,7 +83,7 @@ public class GetMonitoringOverviewQueryHandlerTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Data);
         Assert.Equal(2, result.Data.NewUsersLast24Hours);
-        Assert.Equal(2, result.Data.NewUsersLast30Days);
+        Assert.Equal(2, result.Data.NewUsersLast7Days);
         Assert.Equal(4, result.Data.NewBlogsLast24Hours);
         Assert.Equal(4, result.Data.NewBlogsLast30Days);
         Assert.Equal(5, result.Data.NewCommentsLast24Hours);

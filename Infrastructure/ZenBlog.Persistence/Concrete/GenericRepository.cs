@@ -28,6 +28,13 @@ namespace ZenBlog.Persistence.Concrete
             return Task.CompletedTask;
         }
 
+        public async Task<int> DeleteWhereAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default)
+        {
+            return await _dbSet.Where(filter).ExecuteDeleteAsync(ct);
+        }
+
         public async Task<TEntity?> GetByIdAsync(Guid id, CancellationToken ct = default)
         {
             return await _dbSet.FindAsync([id], ct);

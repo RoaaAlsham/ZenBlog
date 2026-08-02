@@ -18,6 +18,14 @@ namespace ZenBlog.Application.Contracts.Persistence
 
         Task DeleteAsync(TEntity entity);
 
+        /// <summary>
+        /// Bulk-deletes entities matching the filter without loading them into memory.
+        /// Returns the number of rows deleted.
+        /// </summary>
+        Task<int> DeleteWhereAsync(
+            Expression<Func<TEntity, bool>> filter,
+            CancellationToken ct = default);
+
         Task<List<TEntity>> GetAllWithIncludesAsync(
     CancellationToken ct = default,
     params Expression<Func<TEntity, object>>[] includes);
