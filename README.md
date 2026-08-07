@@ -585,6 +585,8 @@ Deploy the API with Docker on Render (Postgres on Neon, client on Cloudflare Pag
 | `CloudinarySettings__CloudName` | Yes (uploads) | Cloudinary cloud name |
 | `CloudinarySettings__ApiKey` | Yes (uploads) | Cloudinary API key |
 | `CloudinarySettings__ApiSecret` | Yes (uploads) | Cloudinary API secret |
+| `AUTHDEEP_SERVICE_SECRET` | Yes | AuthDeep service secret (`ssk_…`). HMAC key for gateway signature verification; startup fails without it |
+| `AUTHDEEP_GATEWAY_KEY` | Yes | AuthDeep gateway key (`gwk_…`) that forwarded requests must present in `X-Gateway-Key`; startup fails without it |
 | `AdminSeed__Enabled` | No | Leave `false` in production unless bootstrapping once |
 | `AdminSeed__Email` | If seed enabled | Bootstrap admin email |
 | `AdminSeed__Password` | If seed enabled | Bootstrap admin password |
@@ -594,6 +596,26 @@ Deploy the API with Docker on Render (Postgres on Neon, client on Cloudflare Pag
 | `LuckyPenny__LicenseKey` | No | AutoMapper/MediatR license if needed |
 
 In Production the API applies EF migrations on startup (`Database.Migrate()`), exposes `GET /health` (Postgres check), and does **not** map OpenAPI/Scalar.
+
+### AuthDeep gateway verification
+
+The API sits behind the AuthDeep gateway. `AuthDeepGatewayMiddleware` recomputes the HMAC-SHA256 signature AuthDeep attaches to each forwarded request and rejects anything sent directly to the backend with `401`.
+
+Signed payload (newline separated, **no** trailing newline), keyed by the full `ssk_` string as UTF-8 bytes:
+
+```
+METHOD\npath\ntimestamp\nhex(sha256(rawBody))
+```
+
+`path` excludes the query string and has any trailing slash stripped (so `/api/users/` and `/api/users` sign identically); timestamps outside ±300s are rejected; the digest comparison is constant-time. If `X-Gateway-Timestamp` is present it must agree with the signed `t=` value — only `t=` is covered by the HMAC.
+
+Note the asymmetry with outbound AuthDeep calls: **inbound** verification signs the path only, while **outbound** SAK calls to AuthDeep sign path *plus* query string.
+
+Verified identity (`X-AuthDeep-User-ID`, `-Tenant-ID`, `-User-Email`, `-User-Roles`, `X-Request-Id`) is stashed as an `AuthDeepIdentity` in `HttpContext.Items["AuthDeepIdentity"]` — never trust those headers before verification, and prefer them over any tenant/user id supplied in the body or query afterwards.
+
+Scope is deny-by-default under `/api`: every write verb is protected, and GETs are protected except the anonymous public reads (`/api/blogs`, `/api/categories`, `/api/comments`, `/api/settings`, `/api/users/by-username`). `/health` is never protected. New endpoints are protected automatically unless explicitly added to the allowlist in `AuthDeepProtectedRoutes`.
+
+Set `Serilog__MinimumLevel__Default=Debug` outside Production to log the reconstructed payload and expected-vs-received digests on a mismatch; the secret is never logged, and the diagnostic is suppressed in Production.
 
 Docker (from repo root):
 

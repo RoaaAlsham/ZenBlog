@@ -190,6 +190,15 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// AuthDeep gateway credentials. Required everywhere except the Testing host, so a
+// misconfigured deployment throws here — before app.Run() — rather than silently
+// accepting unsigned traffic; integration tests opt in by supplying the two keys.
+// Resolved from DI rather than builder.Configuration for the same reason as the
+// health check above: WebApplicationFactory config is not composed until now.
+var authDeepOptions = AuthDeepGatewayOptions.FromConfiguration(
+    app.Services.GetRequiredService<IConfiguration>(),
+    required: !app.Environment.IsEnvironment("Testing"));
+
 if (app.Environment.IsProduction())
 {
     using var scope = app.Services.CreateScope();
@@ -224,6 +233,18 @@ if (!app.Environment.IsEnvironment("Testing"))
 // Enable CORS before auth and endpoint mapping so browser preflight (OPTIONS)
 // requests succeed when zenblog_client calls this API from another origin.
 app.UseCors("AllowFrontend");
+
+// Verify the AuthDeep gateway signature before anything else looks at the request:
+// ahead of the rate limiter, authentication, authorization and endpoint execution, so
+// traffic that did not come through the gateway is rejected at the cheapest point.
+// Placed after UseCors so browser preflight (OPTIONS), which carries no gateway
+// headers, is still answered by the CORS middleware.
+if (authDeepOptions is not null)
+{
+    app.UseWhen(
+        AuthDeepProtectedRoutes.RequiresGatewaySignature,
+        protectedBranch => protectedBranch.UseMiddleware<AuthDeepGatewayMiddleware>(authDeepOptions));
+}
 
 app.UseRateLimiter();
 
