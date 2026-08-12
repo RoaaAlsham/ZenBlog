@@ -12,6 +12,9 @@
             erb.RegisterSettingsEndpoints();
             erb.RegisterMediaEndpoints();
             erb.RegisterMonitoringEndpoints();
+
+            // Temporary; no-op unless Diagnostics:GatewayIdentity is enabled.
+            erb.RegisterGatewayDiagnosticsEndpoints();
         }
     }
 }
