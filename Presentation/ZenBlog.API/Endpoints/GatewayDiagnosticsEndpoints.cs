@@ -7,9 +7,11 @@ namespace ZenBlog.API.Endpoints
     /// service.
     ///
     /// The identity-bridge design turns on one question that cannot be answered by reading
-    /// code on either side — when the caller authenticates with a service key (`sak_`), does
-    /// the gateway inject an end-user identity, or only the service's own? The gateway knows
-    /// the calling app, not the reader. This endpoint answers it by observation.
+    /// code on either side — when the caller authenticates with a service key (`sak_`), what
+    /// reaches the backend? Measurement has already shown the published header list does not
+    /// match the wire for that case, so this reports headers <em>exhaustively</em> rather
+    /// than through an allowlist: a filtered view cannot distinguish "the gateway stripped
+    /// it" from "we forgot to look for it".
     ///
     /// Disabled unless <c>Diagnostics:GatewayIdentity</c> is true, so it cannot ship enabled
     /// by accident. Delete this file once the question is settled.
@@ -19,15 +21,22 @@ namespace ZenBlog.API.Endpoints
         private const string EnabledConfigKey = "Diagnostics:GatewayIdentity";
 
         /// <summary>
-        /// Headers that are credentials rather than identity. Their presence and length are
-        /// reported; the values are not, so a diagnostic response can never leak the gateway
-        /// key or a live signature.
+        /// Headers whose values are credentials. Everything else is echoed verbatim; these
+        /// are reported as presence and length only, so a diagnostic response stays safe to
+        /// paste into a ticket. Redaction is deliberately visible rather than silent — a
+        /// missing header and a hidden one must not look alike.
         /// </summary>
-        private static readonly string[] CredentialHeaders =
-        [
-            "X-Gateway-Key",
-            "X-Gateway-Signature"
-        ];
+        private static readonly HashSet<string> CredentialHeaders =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "Authorization",
+                "Proxy-Authorization",
+                "Cookie",
+                "X-API-Key",
+                "X-HMAC-Signature",
+                "X-Gateway-Key",
+                "X-Gateway-Signature"
+            };
 
         public static void RegisterGatewayDiagnosticsEndpoints(this IEndpointRouteBuilder erb)
         {
@@ -48,18 +57,26 @@ namespace ZenBlog.API.Endpoints
             {
                 context.Items.TryGetValue(AuthDeepGatewayMiddleware.IdentityItemKey, out var stashed);
                 var identity = stashed as AuthDeepIdentity;
+                var request = context.Request;
 
-                var forwarded = context.Request.Headers
-                    .Where(header =>
-                        header.Key.StartsWith("X-AuthDeep-", StringComparison.OrdinalIgnoreCase)
-                        || header.Key.StartsWith("X-Gateway-", StringComparison.OrdinalIgnoreCase)
-                        || header.Key.Equals("X-Request-Id", StringComparison.OrdinalIgnoreCase))
-                    .ToDictionary(
-                        header => header.Key,
-                        header => CredentialHeaders.Contains(header.Key, StringComparer.OrdinalIgnoreCase)
-                            ? $"<present, {header.Value.ToString().Length} chars>"
-                            : header.Value.ToString(),
-                        StringComparer.OrdinalIgnoreCase);
+                // Sorted so two runs diff cleanly against each other.
+                var headers = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                // A header sent more than once arrives comma-joined, which would silently
+                // corrupt an id. Naming them separately makes that visible instead.
+                var duplicated = new List<string>();
+
+                foreach (var header in request.Headers)
+                {
+                    headers[header.Key] = CredentialHeaders.Contains(header.Key)
+                        ? $"<present, {header.Value.ToString().Length} chars>"
+                        : header.Value.ToString();
+
+                    if (header.Value.Count > 1)
+                    {
+                        duplicated.Add($"{header.Key} (x{header.Value.Count})");
+                    }
+                }
 
                 return Results.Ok(new
                 {
@@ -75,12 +92,23 @@ namespace ZenBlog.API.Endpoints
                             identity.Roles,
                             identity.RequestId
                         },
-                    // Every AuthDeep/gateway header that actually arrived, in full, so a
-                    // header the middleware does not yet read is still visible here.
-                    ForwardedHeaders = forwarded,
-                    // Expected false until the gateway identity auth scheme exists.
+                    // Expected false until a gateway identity auth scheme exists.
                     PrincipalIsAuthenticated = context.User.Identity?.IsAuthenticated ?? false,
-                    PrincipalName = context.User.Identity?.Name
+                    PrincipalName = context.User.Identity?.Name,
+                    // Shows whether the gateway rewrites the request line, not just headers.
+                    Request = new
+                    {
+                        request.Method,
+                        Path = request.Path.Value,
+                        QueryString = request.QueryString.Value,
+                        request.Protocol,
+                        request.ContentLength,
+                        Scheme = request.Scheme,
+                        Host = request.Host.Value
+                    },
+                    HeaderCount = headers.Count,
+                    DuplicatedHeaders = duplicated,
+                    Headers = headers
                 });
             });
         }
