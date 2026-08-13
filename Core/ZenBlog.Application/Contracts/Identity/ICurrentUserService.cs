@@ -7,5 +7,12 @@
     {
         string? UserId { get; }
         bool IsAuthenticated { get; }
+
+        /// <summary>
+        /// Roles AuthDeep asserted for this request, read from the gateway-injected
+        /// header after its signature verified. This service does not add to them: the
+        /// local AspNetUserRoles table no longer drives authorization.
+        /// </summary>
+        IReadOnlyList<string> Roles { get; }
     }
 }

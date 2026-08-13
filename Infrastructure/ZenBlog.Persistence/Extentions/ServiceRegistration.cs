@@ -4,10 +4,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using ZenBlog.Application.Contracts.Identity;
 using ZenBlog.Application.Contracts.Persistence;
 using ZenBlog.Domain.Entities;
 using ZenBlog.Persistence.Concrete;
 using ZenBlog.Persistence.Context;
+using ZenBlog.Persistence.Identity;
 using ZenBlog.Persistence.Intercepters.ZenBlog.Persistence.Interceptors;
 using ZenBlog.Persistence.Options;
 
@@ -49,6 +51,11 @@ namespace ZenBlog.Persistence.Extentions
 
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
+
+            // Backs the provisioner's "already seen this subject" check, so the common
+            // request does not pay for a lookup.
+            services.AddMemoryCache();
+            services.AddScoped<IAuthDeepUserProvisioner, AuthDeepUserProvisioner>();
         }
     }
 }

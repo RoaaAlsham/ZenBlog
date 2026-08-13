@@ -27,7 +27,10 @@ public class GetCurrentUserQueryHandler(
             return BaseResult<UserProfileResult>.NotFound("User not found.");
         }
 
-        return BaseResult<UserProfileResult>.Success(ToProfileResult(user));
+        // Roles ride along only here: this is the one response about the caller
+        // themselves, and the gateway only ever tells us about the caller.
+        return BaseResult<UserProfileResult>.Success(
+            ToProfileResult(user) with { Roles = currentUser.Roles });
     }
 
     internal static UserProfileResult ToProfileResult(AppUser user) =>

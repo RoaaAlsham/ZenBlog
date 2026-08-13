@@ -97,8 +97,21 @@ public class GatewayDiagnosticsTests
 
         Assert.Equal(userId, body.GetProperty("headers").GetProperty("X-AuthDeep-User-ID").GetString());
 
-        // No end-user auth scheme exists yet — this is the gap the bridge closes.
-        Assert.False(body.GetProperty("principalIsAuthenticated").GetBoolean());
+        // The gap this diagnostic was written to measure is now closed: the verified
+        // gateway identity reaches the authorization layer as a real principal.
+        Assert.True(body.GetProperty("principalIsAuthenticated").GetBoolean());
+
+        var principalRoles = body.GetProperty("principalRoles")
+            .EnumerateArray()
+            .Select(r => r.GetString())
+            .ToArray();
+
+        // AuthDeep's own casing survives...
+        Assert.Contains("admin", principalRoles);
+        Assert.Contains("editor", principalRoles);
+        // ...and the canonical name is added alongside it, which is what makes
+        // RequireRole("Admin") match a tenant whose roles are lowercase.
+        Assert.Contains("Admin", principalRoles);
     }
 
     /// <summary>

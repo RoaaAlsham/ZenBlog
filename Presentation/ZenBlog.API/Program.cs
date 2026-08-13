@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using ZenBlog.Persistence.Extentions;
 using ZenBlog.Application.Extensions;
 using ZenBlog.Infrastructure.Extensions;
@@ -77,6 +78,28 @@ builder.Services.AddCors(options =>
 builder.Services.AddPersistenceServices(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructureServices(builder.Configuration);
+
+// The end user is authenticated by AuthDeep, not by this service. The gateway
+// resolves them — from a browser session or from a `wat_` plus its PoP signature —
+// and injects X-AuthDeep-User-* headers, which AuthDeepGatewayMiddleware verifies
+// before anything reads them. This scheme turns that into the ClaimsPrincipal that
+// .RequireAuthorization() and RequireRole("Admin") check against.
+//
+// Registered after AddInfrastructureServices so it overrides the default scheme set
+// there. The legacy ZenBlog JWT bearer scheme stays registered for the older
+// /api/auth endpoints, but it is no longer the default and no endpoint asks for it
+// by name, so nothing reaches an authorization check through it.
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = AuthDeepGatewayDefaults.AuthenticationScheme;
+        options.DefaultAuthenticateScheme = AuthDeepGatewayDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = AuthDeepGatewayDefaults.AuthenticationScheme;
+    })
+    .AddScheme<AuthenticationSchemeOptions, AuthDeepGatewayAuthenticationHandler>(
+        AuthDeepGatewayDefaults.AuthenticationScheme,
+        displayName: null,
+        configureOptions: _ => { });
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -243,7 +266,13 @@ if (authDeepOptions is not null)
 {
     app.UseWhen(
         AuthDeepProtectedRoutes.RequiresGatewaySignature,
-        protectedBranch => protectedBranch.UseMiddleware<AuthDeepGatewayMiddleware>(authDeepOptions));
+        protectedBranch =>
+        {
+            protectedBranch.UseMiddleware<AuthDeepGatewayMiddleware>(authDeepOptions);
+            // Straight after verification, so a reader AuthDeep knows has a local row
+            // before any handler tries to attach content to them.
+            protectedBranch.UseMiddleware<AuthDeepUserProvisioningMiddleware>();
+        });
 }
 
 app.UseRateLimiter();

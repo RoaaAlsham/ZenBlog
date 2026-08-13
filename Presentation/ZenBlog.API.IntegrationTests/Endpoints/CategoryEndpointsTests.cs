@@ -16,7 +16,7 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
     {
         var user = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "category-create-user@example.com", "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.PostAsJsonAsync("/api/categories", new CreateCategoryCommand
         {
@@ -32,7 +32,7 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
         var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Update Forbidden Category");
         var user = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "category-update-user@example.com", "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.PutAsJsonAsync($"/api/categories/{categoryId}", new UpdateCategoryCommand(
             categoryId,
@@ -46,7 +46,7 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
     {
         var user = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "category-user@example.com", "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
         var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Protected Category");
 
         var response = await _client.DeleteAsync($"/api/categories/{categoryId}");
@@ -63,7 +63,7 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
             _factory, _client, "category-admin@example.com", "Password123!");
         await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
         admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
 
         var response = await _client.DeleteAsync($"/api/categories/{categoryId}");
 
@@ -75,7 +75,7 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
     {
         var owner = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "category-with-blogs@example.com", "Password123!");
-        _client.UseBearerToken(owner.AccessToken);
+        _client.UseGatewayUser(owner.Id);
 
         var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Category With Blogs");
         var blogId = await ApiTestHelpers.CreateBlogAsync(_client, categoryId, "Blog blocking category delete");
@@ -84,7 +84,7 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
             _factory, _client, "category-delete-blocked-admin@example.com", "Password123!");
         await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
         admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
 
         var deleteResponse = await _client.DeleteAsync($"/api/categories/{categoryId}");
         Assert.Equal(HttpStatusCode.BadRequest, deleteResponse.StatusCode);
@@ -103,7 +103,7 @@ public class CategoryEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<Z
             _factory, _client, "category-create-admin@example.com", "Password123!");
         await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
         admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
 
         var response = await _client.PostAsJsonAsync("/api/categories", new CreateCategoryCommand
         {

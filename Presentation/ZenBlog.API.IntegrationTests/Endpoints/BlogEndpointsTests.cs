@@ -20,11 +20,11 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     {
         var owner = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "blog-author-link@example.com", "Password123!");
-        _client.UseBearerToken(owner.AccessToken);
+        _client.UseGatewayUser(owner.Id);
         var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Author Link Category");
         var blogId = await ApiTestHelpers.CreateBlogAsync(_client, categoryId, "Author linked blog");
 
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var response = await _client.GetAsync($"/api/blogs/{blogId}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -47,7 +47,7 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     [Fact]
     public async Task DeleteBlog_WithoutAuth_ReturnsUnauthorized()
     {
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
 
         var response = await _client.DeleteAsync($"/api/blogs/{Guid.NewGuid()}");
 
@@ -59,13 +59,13 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     {
         var owner = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "blog-owner@example.com", "Password123!");
-        _client.UseBearerToken(owner.AccessToken);
+        _client.UseGatewayUser(owner.Id);
         var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Owner Category");
         var blogId = await ApiTestHelpers.CreateBlogAsync(_client, categoryId, "Owner blog");
 
         var otherUser = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "blog-intruder@example.com", "Password123!");
-        _client.UseBearerToken(otherUser.AccessToken);
+        _client.UseGatewayUser(otherUser.Id);
 
         var response = await _client.DeleteAsync($"/api/blogs/{blogId}");
 
@@ -77,7 +77,7 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     {
         var owner = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "blog-owner-delete@example.com", "Password123!");
-        _client.UseBearerToken(owner.AccessToken);
+        _client.UseGatewayUser(owner.Id);
         var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Delete Category");
         var blogId = await ApiTestHelpers.CreateBlogAsync(_client, categoryId, "Deletable blog");
 
@@ -91,7 +91,7 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     {
         var owner = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "blog-owner-admin-case@example.com", "Password123!");
-        _client.UseBearerToken(owner.AccessToken);
+        _client.UseGatewayUser(owner.Id);
         var categoryId = await ApiTestHelpers.CreateCategoryAsync(_client, _factory, "Admin Delete Category");
         var blogId = await ApiTestHelpers.CreateBlogAsync(_client, categoryId, "Admin deletable blog");
 
@@ -99,7 +99,7 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             _factory, _client, "blog-admin@example.com", "Password123!");
         await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
         admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
 
         var response = await _client.DeleteAsync($"/api/blogs/{blogId}");
 

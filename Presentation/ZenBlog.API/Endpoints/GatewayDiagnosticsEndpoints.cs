@@ -86,15 +86,26 @@ namespace ZenBlog.API.Endpoints
                         ? null
                         : new
                         {
+                            AuthType = identity.AuthType.ToString(),
+                            // The whole point of the sak_ test: these four must all be
+                            // empty for an api_key caller, however the call was dressed up.
                             identity.UserId,
-                            identity.TenantId,
                             identity.Email,
                             identity.Roles,
+                            identity.IsHuman,
+                            identity.TenantId,
+                            identity.ApiKeyId,
+                            identity.ApiKeyType,
                             identity.RequestId
                         },
-                    // Expected false until a gateway identity auth scheme exists.
                     PrincipalIsAuthenticated = context.User.Identity?.IsAuthenticated ?? false,
                     PrincipalName = context.User.Identity?.Name,
+                    // Proves the gateway identity reached the authorization layer, not
+                    // just the middleware — this is what RequireRole("Admin") reads.
+                    PrincipalRoles = context.User.Claims
+                        .Where(claim => claim.Type == System.Security.Claims.ClaimTypes.Role)
+                        .Select(claim => claim.Value)
+                        .ToArray(),
                     // Shows whether the gateway rewrites the request line, not just headers.
                     Request = new
                     {

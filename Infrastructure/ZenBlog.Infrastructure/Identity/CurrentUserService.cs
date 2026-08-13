@@ -11,5 +11,12 @@ namespace ZenBlog.Infrastructure.Identity
 
         public bool IsAuthenticated =>
             httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
+
+        public IReadOnlyList<string> Roles =>
+            httpContextAccessor.HttpContext?.User?
+                .FindAll(ClaimTypes.Role)
+                .Select(claim => claim.Value)
+                .ToArray()
+            ?? [];
     }
 }

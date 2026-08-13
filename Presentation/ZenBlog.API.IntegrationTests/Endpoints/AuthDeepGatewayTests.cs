@@ -49,12 +49,11 @@ public class AuthDeepGatewayTests(AuthDeepGatewayFactory factory) : IClassFixtur
         var admin = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "authdeep-trailing-slash@example.com", "Password123!");
         await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
-        var adminToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
 
+        // The role travels in the signed request, as the gateway would inject it.
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/")
-            .Sign(AuthDeepGatewayFactory.GatewayKey, AuthDeepGatewayFactory.ServiceSecret, userId: admin.Id);
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-            "Bearer", adminToken);
+            .Sign(AuthDeepGatewayFactory.GatewayKey, AuthDeepGatewayFactory.ServiceSecret,
+                userId: admin.Id, roles: "Admin");
 
         var response = await _client.SendAsync(request);
 
@@ -230,13 +229,11 @@ public class AuthDeepGatewayTests(AuthDeepGatewayFactory factory) : IClassFixtur
         var user = await ApiTestHelpers.RegisterAndLoginAsync(
             _factory, _client, "authdeep-query@example.com", "Password123!");
         await ApiTestHelpers.AssignRoleAsync(_factory, user.Id, "Admin");
-        var adminToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, user.Id);
 
         // AuthDeepSigner signs only the path; the query must not be part of the payload.
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/monitoring/activities?page=2&pageSize=5")
-            .Sign(AuthDeepGatewayFactory.GatewayKey, AuthDeepGatewayFactory.ServiceSecret, userId: user.Id);
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-            "Bearer", adminToken);
+            .Sign(AuthDeepGatewayFactory.GatewayKey, AuthDeepGatewayFactory.ServiceSecret,
+                userId: user.Id, roles: "Admin");
 
         var response = await _client.SendAsync(request);
 

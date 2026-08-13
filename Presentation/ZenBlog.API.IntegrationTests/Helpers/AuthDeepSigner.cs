@@ -39,6 +39,11 @@ public static class AuthDeepSigner
     }
 
     /// <summary>Attaches a valid gateway key + signature and the identity headers AuthDeep forwards.</summary>
+    /// <param name="authType">
+    /// session | web_token | api_key. Left unset by default so existing tests keep
+    /// exercising the "gateway sent no Auth-Type" fallback.
+    /// </param>
+    /// <param name="apiKeyId">Set alongside <paramref name="authType"/> "api_key".</param>
     public static HttpRequestMessage Sign(
         this HttpRequestMessage request,
         string gatewayKey,
@@ -46,7 +51,9 @@ public static class AuthDeepSigner
         byte[]? body = null,
         long? timestamp = null,
         string? userId = null,
-        string? roles = null)
+        string? roles = null,
+        string? authType = null,
+        string? apiKeyId = null)
     {
         var effectiveTimestamp = timestamp ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var path = request.RequestUri!.IsAbsoluteUri
@@ -67,6 +74,17 @@ public static class AuthDeepSigner
         if (roles is not null)
         {
             request.Headers.Add("X-AuthDeep-User-Roles", roles);
+        }
+
+        if (authType is not null)
+        {
+            request.Headers.Add("X-AuthDeep-Auth-Type", authType);
+        }
+
+        if (apiKeyId is not null)
+        {
+            request.Headers.Add("X-AuthDeep-API-Key-ID", apiKeyId);
+            request.Headers.Add("X-AuthDeep-API-Key-Type", "service");
         }
 
         return request;

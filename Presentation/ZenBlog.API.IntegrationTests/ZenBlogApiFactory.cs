@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using ZenBlog.API.IntegrationTests.Helpers;
 using ZenBlog.Persistence.Context;
 
 namespace ZenBlog.API.IntegrationTests;
@@ -33,6 +34,11 @@ public class ZenBlogApiFactory : WebApplicationFactory<Program>
                 ["CloudinarySettings:ApiSecret"] = "test-secret"
             });
         });
+
+        // Lets a test act as a signed-in reader without signing every request as the
+        // gateway. See TestGatewayIdentityFilter — test-assembly only.
+        builder.ConfigureServices(services =>
+            services.AddSingleton<IStartupFilter, TestGatewayIdentityFilter>());
     }
 
     protected override IHost CreateHost(IHostBuilder builder)

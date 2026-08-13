@@ -27,7 +27,23 @@ namespace ZenBlog.API.CustomMiddlewares
         private const string TenantIdHeader = "X-AuthDeep-Tenant-ID";
         private const string UserEmailHeader = "X-AuthDeep-User-Email";
         private const string UserRolesHeader = "X-AuthDeep-User-Roles";
-        private const string RequestIdHeader = "X-Request-Id";
+        private const string ApiKeyIdHeader = "X-AuthDeep-API-Key-ID";
+        private const string ApiKeyTypeHeader = "X-AuthDeep-API-Key-Type";
+        private const string GatewayRequestIdHeader = "X-Gateway-Request-Id";
+
+        /// <summary>Gateway-injected duplicates of the user and tenant ids.</summary>
+        private const string ForwardedUserIdHeader = "X-Forwarded-User-Id";
+        private const string ForwardedTenantIdHeader = "X-Forwarded-Tenant-Id";
+
+        /// <summary>
+        /// Not currently injected by the gateway — the header list has no auth-type field,
+        /// and the caller kind is inferred from which identity headers arrived. Read anyway
+        /// so that if AuthDeep starts stating it, it is believed instead of guessed.
+        /// </summary>
+        private const string AuthTypeHeader = "X-AuthDeep-Auth-Type";
+
+        /// <summary>Older gateway builds sent the correlation id under this name.</summary>
+        private const string LegacyRequestIdHeader = "X-Request-Id";
 
         /// <summary>Maximum tolerated clock skew, in seconds, between the gateway and this host.</summary>
         private const long ReplayWindowSeconds = 300;
@@ -226,16 +242,71 @@ namespace ZenBlog.API.CustomMiddlewares
 
         private static AuthDeepIdentity ReadIdentity(HttpRequest request)
         {
-            var roles = request.Headers[UserRolesHeader].ToString();
+            var apiKeyId = NullIfEmpty(request.Headers[ApiKeyIdHeader].ToString());
+            var apiKeyType = NullIfEmpty(request.Headers[ApiKeyTypeHeader].ToString());
+
+            // X-Forwarded-User-Id is the gateway's own duplicate of X-AuthDeep-User-ID.
+            // Taken only as a fallback: both are injected together, so a request with
+            // just the duplicate is unusual enough to be worth still honouring, but the
+            // canonical header wins whenever it is there.
+            var userId = NullIfEmpty(request.Headers[UserIdHeader].ToString())
+                ?? NullIfEmpty(request.Headers[ForwardedUserIdHeader].ToString());
+
+            var authType = ResolveAuthType(request.Headers[AuthTypeHeader].ToString(), apiKeyId, userId);
+
+            // An API key is a machine. The gateway injects no user identity for one and
+            // strips any the caller attached, so a user-shaped header arriving next to a
+            // key id is spoofed and is dropped here rather than reaching an endpoint that
+            // would read it as a person. Belt-and-braces, and what makes the guarantee
+            // testable on this side of the hop.
+            var isHuman = authType is not AuthDeepAuthType.ApiKey && userId is not null;
+
+            var roles = isHuman
+                ? request.Headers[UserRolesHeader].ToString()
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : [];
 
             return new AuthDeepIdentity(
-                UserId: NullIfEmpty(request.Headers[UserIdHeader].ToString()),
-                TenantId: NullIfEmpty(request.Headers[TenantIdHeader].ToString()),
-                Email: NullIfEmpty(request.Headers[UserEmailHeader].ToString()),
-                Roles: roles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-                RequestId: NullIfEmpty(request.Headers[RequestIdHeader].ToString()));
+                AuthType: authType,
+                UserId: isHuman ? userId : null,
+                // Tenant is asserted on every forwarded request, human or machine, and is
+                // authoritative — the gateway overwrites whatever the caller sent.
+                TenantId: NullIfEmpty(request.Headers[TenantIdHeader].ToString())
+                    ?? NullIfEmpty(request.Headers[ForwardedTenantIdHeader].ToString()),
+                Email: isHuman ? NullIfEmpty(request.Headers[UserEmailHeader].ToString()) : null,
+                Roles: roles,
+                ApiKeyId: apiKeyId,
+                ApiKeyType: apiKeyType,
+                RequestId: NullIfEmpty(request.Headers[GatewayRequestIdHeader].ToString())
+                    ?? NullIfEmpty(request.Headers[LegacyRequestIdHeader].ToString()));
 
             static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
+        /// <summary>
+        /// Works out what kind of caller this is.
+        ///
+        /// The gateway does not send an auth-type header: it distinguishes callers by which
+        /// identity headers it injects. So the kind is inferred from what arrived —
+        /// a key id means a machine, a user id means a person, neither means an anonymous
+        /// hop. The declared header is still honoured first, purely so this keeps working
+        /// if AuthDeep starts sending one.
+        ///
+        /// Order matters. The key-id check comes first so that a spoofed user id presented
+        /// alongside a real key id resolves to <see cref="AuthDeepAuthType.ApiKey"/> and
+        /// gets stripped, rather than being mistaken for a person.
+        /// </summary>
+        private static AuthDeepAuthType ResolveAuthType(string declared, string? apiKeyId, string? userId)
+        {
+            var stated = declared.Trim();
+            if (stated.Equals("session", StringComparison.OrdinalIgnoreCase)) return AuthDeepAuthType.Session;
+            if (stated.Equals("web_token", StringComparison.OrdinalIgnoreCase)) return AuthDeepAuthType.WebToken;
+            if (stated.Equals("api_key", StringComparison.OrdinalIgnoreCase)) return AuthDeepAuthType.ApiKey;
+
+            if (apiKeyId is not null) return AuthDeepAuthType.ApiKey;
+            if (userId is not null) return AuthDeepAuthType.Human;
+
+            return AuthDeepAuthType.Unknown;
         }
 
         /// <summary>

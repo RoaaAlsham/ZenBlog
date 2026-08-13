@@ -22,7 +22,7 @@ public class MonitoringEndpointsTests(ZenBlogApiFactory factory) : IClassFixture
     [Fact]
     public async Task Overview_Unauthenticated_ReturnsUnauthorized()
     {
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var response = await _client.GetAsync("/api/monitoring/overview");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -35,7 +35,7 @@ public class MonitoringEndpointsTests(ZenBlogApiFactory factory) : IClassFixture
             _client,
             "monitor-user@example.com",
             "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.GetAsync("/api/monitoring/overview");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -51,7 +51,7 @@ public class MonitoringEndpointsTests(ZenBlogApiFactory factory) : IClassFixture
             "Password123!");
         await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
         admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
 
         var response = await _client.GetAsync("/api/monitoring/overview");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -89,7 +89,7 @@ public class MonitoringEndpointsTests(ZenBlogApiFactory factory) : IClassFixture
             await db.SaveChangesAsync();
         }
 
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
         var response = await _client.GetAsync("/api/monitoring/activities?page=1&pageSize=10");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -110,7 +110,7 @@ public class MonitoringEndpointsTests(ZenBlogApiFactory factory) : IClassFixture
         await ApiTestHelpers.AssignRoleAsync(_factory, admin.Id, "Admin");
         admin.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, admin.Id);
 
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var failedLogin = await _client.PostAsJsonAsync("/api/auth/login", new
         {
             email = "monitor-security@example.com",
@@ -118,7 +118,7 @@ public class MonitoringEndpointsTests(ZenBlogApiFactory factory) : IClassFixture
         });
         Assert.Equal(HttpStatusCode.Unauthorized, failedLogin.StatusCode);
 
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
         var response = await _client.GetAsync("/api/monitoring/security-requests?page=1&pageSize=50");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

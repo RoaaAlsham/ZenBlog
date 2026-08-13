@@ -19,7 +19,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     [Fact]
     public async Task GetMe_Unauthenticated_ReturnsUnauthorized()
     {
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var response = await _client.GetAsync("/api/users/me");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -32,7 +32,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             _client,
             "profile-me@example.com",
             "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.GetAsync("/api/users/me");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -54,7 +54,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             _client,
             "profile-update@example.com",
             "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.PutAsJsonAsync("/api/users/me", new UpdateProfileCommand
         {
@@ -80,7 +80,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         const string newPassword = "NewPassword123!";
 
         var user = await ApiTestHelpers.RegisterAndLoginAsync(_factory, _client, email, oldPassword);
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var changeResponse = await _client.PutAsJsonAsync("/api/users/me/password", new ChangePasswordCommand
         {
@@ -89,7 +89,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         });
         Assert.Equal(HttpStatusCode.OK, changeResponse.StatusCode);
 
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var login = await ApiTestHelpers.LoginAsync(_client, email, newPassword);
         Assert.False(string.IsNullOrWhiteSpace(login.Token));
         Assert.False(string.IsNullOrWhiteSpace(login.Username));
@@ -103,13 +103,13 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             _client,
             "public-author@example.com",
             "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var me = await _client.GetFromJsonAsync<UserProfileResult>("/api/users/me", JsonOptions);
         Assert.NotNull(me);
         Assert.False(string.IsNullOrWhiteSpace(me.Username));
 
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var response = await _client.GetAsync($"/api/users/by-username/{me.Username}");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -128,7 +128,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     [Fact]
     public async Task DeleteMe_Unauthenticated_ReturnsUnauthorized()
     {
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var response = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, "/api/users/me")
         {
             Content = JsonContent.Create(new DeleteMyAccountCommand { CurrentPassword = "Password123!" })
@@ -139,7 +139,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     [Fact]
     public async Task DeleteUser_Unauthenticated_ReturnsUnauthorized()
     {
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var response = await _client.DeleteAsync($"/api/users/{Guid.NewGuid()}");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -152,7 +152,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             _client,
             "delete-nonadmin@example.com",
             "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.DeleteAsync($"/api/users/{Guid.NewGuid()}");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -166,7 +166,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             _client,
             "list-nonadmin@example.com",
             "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.GetAsync("/api/users/");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -179,7 +179,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         const string password = "Password123!";
 
         var user = await ApiTestHelpers.RegisterAndLoginAsync(_factory, _client, email, password);
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, "/api/users/me")
         {
@@ -187,7 +187,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         });
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
         {
             email,
@@ -199,7 +199,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
     [Fact]
     public async Task PromoteUserToAdmin_Unauthenticated_ReturnsUnauthorized()
     {
-        _client.UseBearerToken(null);
+        _client.UseGatewayUser(null);
         var response = await _client.PostAsync($"/api/users/{Guid.NewGuid()}/roles/admin", null);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -212,7 +212,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             _client,
             "promote-nonadmin@example.com",
             "Password123!");
-        _client.UseBearerToken(user.AccessToken);
+        _client.UseGatewayUser(user.Id);
 
         var response = await _client.PostAsync($"/api/users/{Guid.NewGuid()}/roles/admin", null);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -237,7 +237,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
             "promote-target@example.com",
             targetPassword);
 
-        _client.UseBearerToken(admin.AccessToken);
+        _client.UseGatewayUser(admin.Id);
         var response = await _client.PostAsync($"/api/users/{target.Id}/roles/admin", null);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -249,7 +249,7 @@ public class UserEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
         Assert.True(listedTarget.IsAdmin);
 
         target.AccessToken = await ApiTestHelpers.CreateAccessTokenAsync(_factory, target.Id);
-        _client.UseBearerToken(target.AccessToken);
+        _client.UseGatewayUser(target.Id);
 
         var usersAsPromoted = await _client.GetAsync("/api/users/");
         Assert.Equal(HttpStatusCode.OK, usersAsPromoted.StatusCode);

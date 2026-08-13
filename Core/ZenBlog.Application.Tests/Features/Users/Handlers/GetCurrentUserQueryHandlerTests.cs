@@ -58,6 +58,8 @@ public class GetCurrentUserQueryHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(user.Id);
+        // Roles come from the gateway, not from this service's own tables.
+        currentUser.SetupGet(x => x.Roles).Returns(["Admin", "Editor"]);
         userQuery
             .Setup(x => x.FindByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
@@ -74,5 +76,7 @@ public class GetCurrentUserQueryHandlerTests
         Assert.Equal(user.LastName, result.Data.LastName);
         Assert.Equal(user.ImageUrl, result.Data.ImageUrl);
         Assert.Equal(user.ImagePublicId, result.Data.ImagePublicId);
+        // Relayed verbatim: this is how the browser learns whether it is an admin.
+        Assert.Equal(["Admin", "Editor"], result.Data.Roles);
     }
 }

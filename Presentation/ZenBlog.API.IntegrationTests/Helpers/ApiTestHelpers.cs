@@ -140,6 +140,23 @@ public static class ApiTestHelpers
         }
     }
 
+    /// <summary>
+    /// Acts as the given reader for every subsequent request on this client, the way the
+    /// AuthDeep gateway would after resolving their `wat_`. Pass null to go anonymous.
+    ///
+    /// This replaced a ZenBlog-issued bearer token: the service no longer authenticates
+    /// end users itself, so a token it minted proves nothing to it.
+    /// </summary>
+    public static void UseGatewayUser(this HttpClient client, string? userId)
+    {
+        client.DefaultRequestHeaders.Remove(TestGatewayIdentityFilter.UserIdHeader);
+
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            client.DefaultRequestHeaders.Add(TestGatewayIdentityFilter.UserIdHeader, userId);
+        }
+    }
+
     public static void UseBearerToken(this HttpClient client, string? token)
     {
         if (string.IsNullOrWhiteSpace(token))
