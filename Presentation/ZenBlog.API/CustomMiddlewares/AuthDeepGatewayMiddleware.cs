@@ -286,11 +286,11 @@ namespace ZenBlog.API.CustomMiddlewares
         /// <summary>
         /// Works out what kind of caller this is.
         ///
-        /// The gateway does not send an auth-type header: it distinguishes callers by which
-        /// identity headers it injects. So the kind is inferred from what arrived —
-        /// a key id means a machine, a user id means a person, neither means an anonymous
-        /// hop. The declared header is still honoured first, purely so this keeps working
-        /// if AuthDeep starts sending one.
+        /// The gateway declares it in X-AuthDeep-Auth-Type — "session" for an auth.sid
+        /// caller, "web_token" for a wat_ + PoP one, "api_key" for sak_/cak_ — so the
+        /// declared value wins. The inference below is the fallback for a hop that
+        /// arrives without it: a key id means a machine, a user id means a person,
+        /// neither means an anonymous hop.
         ///
         /// Order matters. The key-id check comes first so that a spoofed user id presented
         /// alongside a real key id resolves to <see cref="AuthDeepAuthType.ApiKey"/> and
