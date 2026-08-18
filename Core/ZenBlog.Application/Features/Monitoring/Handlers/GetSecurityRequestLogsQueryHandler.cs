@@ -10,7 +10,6 @@ namespace ZenBlog.Application.Features.Monitoring.Handlers;
 
 public sealed class GetSecurityRequestLogsQueryHandler(
     ICurrentUserService currentUser,
-    IRoleChecker roleChecker,
     IRepository<SecurityRequestLog> securityRepository)
     : IRequestHandler<GetSecurityRequestLogsQuery, BaseResult<PagedResult<SecurityRequestLogResult>>>
 {
@@ -24,7 +23,14 @@ public sealed class GetSecurityRequestLogsQueryHandler(
                 "You must be signed in to view security request logs.");
         }
 
-        if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
+        // AuthDeep owns roles. The gateway asserted them, its signature was
+        // verified before this handler ran, and AuthDeepRoleMap already added the
+        // canonical "Admin" alongside aliases like tenant_admin — the very claim
+        // RequireRole("Admin") matched on the endpoint. Asking AspNetUserRoles
+        // instead was the one check that disagreed, and the only reason every
+        // monitoring call came back 403 while the rest of the admin surface
+        // worked. ICurrentUserService says that table no longer decides this.
+        if (!currentUser.Roles.Contains("Admin"))
         {
             return BaseResult<PagedResult<SecurityRequestLogResult>>.Forbidden(
                 "Only administrators can view security request logs.");

@@ -14,16 +14,13 @@ public class GetSecurityRequestLogsQueryHandlerTests
     public async Task Handle_NonAdmin_ReturnsForbidden()
     {
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns("user-1");
-        roleChecker
-            .Setup(x => x.IsInRoleAsync("user-1", "Admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        currentUser.SetupGet(x => x.Roles)
+            .Returns(new[] { "tenant_member" });
 
         var sut = new GetSecurityRequestLogsQueryHandler(
             currentUser.Object,
-            roleChecker.Object,
             new Mock<IRepository<SecurityRequestLog>>(MockBehavior.Strict).Object);
 
         var result = await sut.Handle(new GetSecurityRequestLogsQuery(), CancellationToken.None);
@@ -35,7 +32,6 @@ public class GetSecurityRequestLogsQueryHandlerTests
     public async Task Handle_Admin_ReturnsPagedSecurityRequests()
     {
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var repository = new Mock<IRepository<SecurityRequestLog>>(MockBehavior.Strict);
         var occurred = DateTime.UtcNow;
         var log = new SecurityRequestLog
@@ -53,9 +49,8 @@ public class GetSecurityRequestLogsQueryHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns("admin-1");
-        roleChecker
-            .Setup(x => x.IsInRoleAsync("admin-1", "Admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        currentUser.SetupGet(x => x.Roles)
+            .Returns(new[] { "tenant_admin", "Admin" });
         repository
             .Setup(x => x.GetPagedWithIncludePathsAsync(
                 It.IsAny<System.Linq.Expressions.Expression<Func<SecurityRequestLog, bool>>>(),
@@ -66,7 +61,6 @@ public class GetSecurityRequestLogsQueryHandlerTests
 
         var sut = new GetSecurityRequestLogsQueryHandler(
             currentUser.Object,
-            roleChecker.Object,
             repository.Object);
 
         var result = await sut.Handle(new GetSecurityRequestLogsQuery(), CancellationToken.None);
