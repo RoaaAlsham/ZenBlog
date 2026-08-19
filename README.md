@@ -615,6 +615,10 @@ Verified identity (`X-AuthDeep-User-ID`, `-Tenant-ID`, `-User-Email`, `-User-Rol
 
 Scope is deny-by-default under `/api`: every write verb is protected, and GETs are protected except the anonymous public reads (`/api/blogs`, `/api/categories`, `/api/comments`, `/api/settings`, `/api/users/by-username`). `/health` is never protected. New endpoints are protected automatically unless explicitly added to the allowlist in `AuthDeepProtectedRoutes`.
 
+**Roles come from AuthDeep, not `AspNetUserRoles`.** AuthDeep asserts them in its own vocabulary — `tenant_admin`, `admin`, `global_admin`, `super_admin`, plus anything listed in `AuthDeep:AdminRoles` — and `AuthDeepRoleMap` adds this service's canonical `Admin` claim alongside whatever arrived, so `RequireRole("Admin")` matches without every policy having to know AuthDeep's names. A handler that needs the same answer reads `ICurrentUserService.Roles`, which is exactly that claim set.
+
+Do **not** use `IRoleChecker` to answer "is this user an admin". It queries the local Identity store, which no longer decides authorization, and it will disagree with the policy that already let the request through — the endpoint says yes, the handler says no, and the caller gets a `403` with an empty body and nothing in the logs. The three monitoring handlers did this until 2026-08-19 and were the only admin surface that refused a valid tenant admin. `IRoleChecker` remains correct for *ownership* questions ("may this user edit that record"), which are about the row rather than the role.
+
 Set `Serilog__MinimumLevel__Default=Debug` outside Production to log the reconstructed payload and expected-vs-received digests on a mismatch; the secret is never logged, and the diagnostic is suppressed in Production.
 
 Docker (from repo root):
