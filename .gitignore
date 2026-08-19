@@ -480,3 +480,17 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local secret spillover
+#
+# Real credentials belong in environment variables or `dotnet user-secrets`,
+# never on disk in the repo. The tracked appsettings files leave every secret
+# slot empty on purpose, so these patterns exist to catch the file someone
+# creates when they want a working connection string locally.
+appsettings.*.[Ll]ocal.json
+appsettings.[Ll]ocal.json
+secrets.json
+
+# Signing material
+*.p12
+*.snk
