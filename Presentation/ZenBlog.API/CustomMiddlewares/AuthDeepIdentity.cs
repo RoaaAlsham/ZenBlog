@@ -5,18 +5,21 @@ namespace ZenBlog.API.CustomMiddlewares
     /// whether there is a human behind the request at all.
     /// </summary>
     /// <remarks>
-    /// The gateway does not send an auth-type header; it distinguishes callers by which
-    /// identity headers it injects. <see cref="Human"/> is therefore the value seen in
-    /// practice for a person, because the injected headers do not say whether they arrived
-    /// by session cookie or by web token. <see cref="Session"/> and <see cref="WebToken"/>
-    /// exist for the day AuthDeep states it explicitly.
+    /// The gateway states this in X-AuthDeep-Auth-Type on every forwarded request, so
+    /// <see cref="Session"/>, <see cref="WebToken"/> and <see cref="ApiKey"/> are the
+    /// values seen in practice — this app's readers arrive as <see cref="WebToken"/>
+    /// (path B, wat_ + PoP). <see cref="Human"/> is the fallback for a hop that arrives
+    /// without the header, where a person can only be inferred from an injected user id.
+    ///
+    /// Do not branch on <see cref="Human"/> to mean "a person": use
+    /// <see cref="AuthDeepIdentity.IsHuman"/>, which covers all three human values.
     /// </remarks>
     public enum AuthDeepAuthType
     {
         /// <summary>Neither a user id nor an API key id was injected — an anonymous hop.</summary>
         Unknown = 0,
 
-        /// <summary>A person, by a means the gateway did not name. The usual human value.</summary>
+        /// <summary>A person, inferred from an injected user id when the gateway did not name the means.</summary>
         Human,
 
         /// <summary>Browser session cookie on an AuthDeep-hosted origin (path A), stated explicitly.</summary>

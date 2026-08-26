@@ -36,9 +36,10 @@ namespace ZenBlog.API.CustomMiddlewares
         private const string ForwardedTenantIdHeader = "X-Forwarded-Tenant-Id";
 
         /// <summary>
-        /// Not currently injected by the gateway — the header list has no auth-type field,
-        /// and the caller kind is inferred from which identity headers arrived. Read anyway
-        /// so that if AuthDeep starts stating it, it is believed instead of guessed.
+        /// Injected on every forwarded request: "session" for an auth.sid caller,
+        /// "web_token" for wat_ + PoP, "api_key" for sak_/cak_. The declared value is
+        /// authoritative — see <see cref="ResolveAuthType"/>, which only falls back to
+        /// inference when this header is absent.
         /// </summary>
         private const string AuthTypeHeader = "X-AuthDeep-Auth-Type";
 
