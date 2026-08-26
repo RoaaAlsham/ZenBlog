@@ -13,6 +13,7 @@ public static class ActivityActions
     public const string CategoryUpdated = "Category.Updated";
     public const string CategoryDeleted = "Category.Deleted";
     public const string UserDeleted = "User.Deleted";
-    public const string UserPromotedToAdmin = "User.PromotedToAdmin";
+    // "User.PromotedToAdmin" is no longer written: role changes happen in AuthDeep, not
+    // here. Historical rows keep the string, so the monitoring filter still lists it.
     public const string SettingsUpdated = "Settings.Updated";
 }

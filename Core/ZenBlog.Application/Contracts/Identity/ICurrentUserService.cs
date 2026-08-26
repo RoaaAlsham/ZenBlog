@@ -14,5 +14,17 @@
         /// local AspNetUserRoles table no longer drives authorization.
         /// </summary>
         IReadOnlyList<string> Roles { get; }
+
+        /// <summary>
+        /// True when AuthDeep asserted an admin role for this request.
+        ///
+        /// The gateway is the only source: Roles comes from the signature-verified
+        /// X-AuthDeep-User-Roles header, and the API layer has already mapped AuthDeep's
+        /// vocabulary (admin, tenant_admin, global_admin) onto the canonical "Admin" this
+        /// property tests for. Asking the local AspNetUserRoles table instead would always
+        /// answer "no" for an AuthDeep reader, because roles are deliberately never
+        /// written there.
+        /// </summary>
+        bool IsAdmin { get; }
     }
 }

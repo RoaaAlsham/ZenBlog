@@ -30,8 +30,7 @@ public class GetMonitoringOverviewQueryHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns("user-1");
-        currentUser.SetupGet(x => x.Roles)
-            .Returns(new[] { "tenant_member" });
+        currentUser.SetupGet(x => x.IsAdmin).Returns(false);
 
         var sut = CreateSut(currentUser);
         var result = await sut.Handle(new GetMonitoringOverviewQuery(), CancellationToken.None);
@@ -50,8 +49,7 @@ public class GetMonitoringOverviewQueryHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns("admin-1");
-        currentUser.SetupGet(x => x.Roles)
-            .Returns(new[] { "tenant_admin", "Admin" });
+        currentUser.SetupGet(x => x.IsAdmin).Returns(true);
 
         activityRepository
             .Setup(x => x.CountAsync(It.IsAny<System.Linq.Expressions.Expression<Func<ActivityLog, bool>>>(), It.IsAny<CancellationToken>()))

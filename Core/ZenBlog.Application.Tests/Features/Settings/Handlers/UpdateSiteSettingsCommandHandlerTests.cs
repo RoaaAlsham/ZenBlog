@@ -17,14 +17,11 @@ public class UpdateSiteSettingsCommandHandlerTests
         var repository = new Mock<IRepository<SiteSettings>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var callerId = "user-1";
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(callerId);
-        roleChecker
-            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        currentUser.SetupGet(x => x.IsAdmin).Returns(false);
 
         var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
 
@@ -32,7 +29,6 @@ public class UpdateSiteSettingsCommandHandlerTests
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            roleChecker.Object,
             userQuery.Object,
             MonitoringMocks.ActivityLogger().Object);
 
@@ -51,7 +47,6 @@ public class UpdateSiteSettingsCommandHandlerTests
         var repository = new Mock<IRepository<SiteSettings>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var callerId = "admin-1";
         var settings = new SiteSettings
         {
@@ -61,9 +56,7 @@ public class UpdateSiteSettingsCommandHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(callerId);
-        roleChecker
-            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        currentUser.SetupGet(x => x.IsAdmin).Returns(true);
         repository
             .Setup(x => x.GetByIdAsync(SiteSettings.SingletonId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(settings);
@@ -76,7 +69,6 @@ public class UpdateSiteSettingsCommandHandlerTests
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            roleChecker.Object,
             userQuery.Object,
             MonitoringMocks.ActivityLogger().Object);
 

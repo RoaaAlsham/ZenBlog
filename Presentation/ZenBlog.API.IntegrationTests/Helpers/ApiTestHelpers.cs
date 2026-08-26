@@ -147,13 +147,21 @@ public static class ApiTestHelpers
     /// This replaced a ZenBlog-issued bearer token: the service no longer authenticates
     /// end users itself, so a token it minted proves nothing to it.
     /// </summary>
-    public static void UseGatewayUser(this HttpClient client, string? userId)
+    public static void UseGatewayUser(this HttpClient client, string? userId, string? roles = null)
     {
         client.DefaultRequestHeaders.Remove(TestGatewayIdentityFilter.UserIdHeader);
+        client.DefaultRequestHeaders.Remove(TestGatewayIdentityFilter.RolesHeader);
 
         if (!string.IsNullOrWhiteSpace(userId))
         {
             client.DefaultRequestHeaders.Add(TestGatewayIdentityFilter.UserIdHeader, userId);
+        }
+
+        // Roles AuthDeep asserts for this reader, in AuthDeep's own vocabulary and
+        // owing nothing to the local role table. Omit to fall back to that table.
+        if (!string.IsNullOrWhiteSpace(roles))
+        {
+            client.DefaultRequestHeaders.Add(TestGatewayIdentityFilter.RolesHeader, roles);
         }
     }
 

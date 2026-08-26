@@ -14,7 +14,6 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         IRepository<Blog> repo,
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUser,
-        IRoleChecker roleChecker,
         IImageStorageService imageStorage,
         IUserQueryService userQuery,
         IActivityLogger activityLogger) : IRequestHandler<RemoveBlogCommand, BaseResult<bool>>
@@ -33,12 +32,9 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             }
 
             var isOwner = blog.UserId == currentUser.UserId;
-            if (!isOwner)
+            if (!isOwner && !currentUser.IsAdmin)
             {
-                if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
-                {
-                    return BaseResult<bool>.Forbidden("You are not authorized to delete this blog.");
-                }
+                return BaseResult<bool>.Forbidden("You are not authorized to delete this blog.");
             }
 
             var coverPublicId = blog.CoverImagePublicId;

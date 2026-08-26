@@ -16,7 +16,6 @@ namespace ZenBlog.Application.Features.Comments.Handlers
         IUnitOfWork uow,
         IMapper mapper,
         ICurrentUserService currentUser,
-        IRoleChecker roleChecker,
         IUserQueryService userQuery,
         IActivityLogger activityLogger)
         : IRequestHandler<UpdateCommentCommand, BaseResult<CommentResult>>
@@ -40,12 +39,9 @@ namespace ZenBlog.Application.Features.Comments.Handlers
             }
 
             var isOwner = comment.UserId == currentUser.UserId;
-            if (!isOwner)
+            if (!isOwner && !currentUser.IsAdmin)
             {
-                if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
-                {
-                    return BaseResult<CommentResult>.Forbidden("You are not authorized to update this comment.");
-                }
+                return BaseResult<CommentResult>.Forbidden("You are not authorized to update this comment.");
             }
 
             mapper.Map(request, comment);

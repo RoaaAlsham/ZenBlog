@@ -13,7 +13,6 @@ namespace ZenBlog.Application.Features.Users.Handlers;
 public class DeleteUserCommandHandler(
     IUserQueryService userQuery,
     IUserAccountService userAccount,
-    IRoleChecker roleChecker,
     ICurrentUserService currentUser,
     IRepository<Comment> commentRepository,
     IRepository<Blog> blogRepository,
@@ -31,12 +30,7 @@ public class DeleteUserCommandHandler(
             return BaseResult<bool>.Unauthorized("You must be signed in to delete a user.");
         }
 
-        var isAdmin = await roleChecker.IsInRoleAsync(
-            currentUser.UserId,
-            UserAccountHardDelete.AdminRoleName,
-            cancellationToken);
-
-        if (!isAdmin)
+        if (!currentUser.IsAdmin)
         {
             return BaseResult<bool>.Forbidden("Only administrators can delete user accounts.");
         }
@@ -53,22 +47,11 @@ public class DeleteUserCommandHandler(
             return BaseResult<bool>.NotFound($"User with id {request.Id} not found.");
         }
 
-        var targetIsAdmin = await roleChecker.IsInRoleAsync(
-            request.Id,
-            UserAccountHardDelete.AdminRoleName,
-            cancellationToken);
-
-        if (targetIsAdmin)
-        {
-            var adminCount = await roleChecker.CountUsersInRoleAsync(
-                UserAccountHardDelete.AdminRoleName,
-                cancellationToken);
-            if (adminCount <= 1)
-            {
-                return BaseResult<bool>.Forbidden(
-                    "Cannot delete the last administrator account.");
-            }
-        }
+        // Whether the target is an admin is AuthDeep's business now, and no answer here
+        // would be worth acting on: deleting this row removes the local content record,
+        // not the AuthDeep account, and the reader is re-provisioned on their next
+        // request with their roles intact. A "last administrator" guard over the local
+        // table would only have protected a copy that no longer decides anything.
 
         if (!string.IsNullOrWhiteSpace(target.ImagePublicId))
         {

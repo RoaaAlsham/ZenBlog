@@ -22,14 +22,19 @@ namespace ZenBlog.API.IntegrationTests.Helpers;
 /// like this. Tests that exercise signature verification itself use
 /// <see cref="AuthDeepGatewayFactory"/> and sign for real.
 ///
-/// Roles are read from the local Identity store rather than passed in, mirroring the
-/// production arrangement where AuthDeep is the one asserting them and the test's
-/// AssignRoleAsync is what makes someone an admin.
+/// Roles default to the local Identity store, which is what AssignRoleAsync writes, but
+/// <see cref="RolesHeader"/> overrides them. The override is the honest case: in
+/// production AuthDeep asserts roles for a reader with no local role row at all, and a
+/// test that can only make an admin by writing one cannot notice a check that reads the
+/// local table instead of the request.
 /// </summary>
 public sealed class TestGatewayIdentityFilter : IStartupFilter
 {
     /// <summary>Carries the acting user's id. Deliberately not an Authorization header.</summary>
     public const string UserIdHeader = "X-Test-Gateway-User-Id";
+
+    /// <summary>Comma-separated roles AuthDeep asserts, in its own vocabulary.</summary>
+    public const string RolesHeader = "X-Test-Gateway-User-Roles";
 
     public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
     {
@@ -44,14 +49,17 @@ public sealed class TestGatewayIdentityFilter : IStartupFilter
 
                 if (user is not null)
                 {
-                    var roles = await userManager.GetRolesAsync(user);
+                    var declared = context.Request.Headers[RolesHeader].ToString();
+                    var roles = string.IsNullOrWhiteSpace(declared)
+                        ? (IReadOnlyList<string>)(await userManager.GetRolesAsync(user)).ToArray()
+                        : declared.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
                     context.Items[AuthDeepGatewayMiddleware.IdentityItemKey] = new AuthDeepIdentity(
                         AuthType: AuthDeepAuthType.WebToken,
                         UserId: user.Id,
                         TenantId: "tenant-under-test",
                         Email: user.Email,
-                        Roles: roles.ToArray(),
+                        Roles: roles,
                         ApiKeyId: null,
                         ApiKeyType: null,
                         RequestId: Guid.NewGuid().ToString());

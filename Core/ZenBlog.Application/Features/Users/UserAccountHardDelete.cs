@@ -12,8 +12,6 @@ namespace ZenBlog.Application.Features.Users;
 /// </summary>
 public static class UserAccountHardDelete
 {
-    public const string AdminRoleName = "Admin";
-
     public static async Task PurgeContentAsync(
         string userId,
         IRepository<Comment> commentRepository,

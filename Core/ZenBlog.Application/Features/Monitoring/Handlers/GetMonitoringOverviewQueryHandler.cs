@@ -33,7 +33,7 @@ public sealed class GetMonitoringOverviewQueryHandler(
         // instead was the one check that disagreed, and the only reason every
         // monitoring call came back 403 while the rest of the admin surface
         // worked. ICurrentUserService says that table no longer decides this.
-        if (!currentUser.Roles.Contains("Admin"))
+        if (!currentUser.IsAdmin)
         {
             return BaseResult<MonitoringOverviewResult>.Forbidden(
                 "Only administrators can view monitoring data.");

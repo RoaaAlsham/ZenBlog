@@ -13,7 +13,6 @@ public class DeleteCommentCommandHandler(
     IRepository<Comment> repo,
     IUnitOfWork uow,
     ICurrentUserService currentUser,
-    IRoleChecker roleChecker,
     IUserQueryService userQuery,
     IActivityLogger activityLogger)
     : IRequestHandler<RemoveCommentCommand, BaseResult<bool>>
@@ -34,12 +33,9 @@ public class DeleteCommentCommandHandler(
         }
 
         var isOwner = comment.UserId == currentUser.UserId;
-        if (!isOwner)
+        if (!isOwner && !currentUser.IsAdmin)
         {
-            if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
-            {
-                return BaseResult<bool>.Forbidden("You are not authorized to delete this comment.");
-            }
+            return BaseResult<bool>.Forbidden("You are not authorized to delete this comment.");
         }
 
         var commentId = comment.Id;

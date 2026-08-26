@@ -19,7 +19,6 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
         IUnitOfWork uow,
         IImageStorageService imageStorage,
         ICurrentUserService currentUser,
-        IRoleChecker roleChecker,
         IUserQueryService userQuery,
         IActivityLogger activityLogger)
         : IRequestHandler<UpdateBlogCommand, BaseResult<GetBlogsQueryResult>>
@@ -38,12 +37,9 @@ namespace ZenBlog.Application.Features.Blogs.Handlers
             }
 
             var isOwner = blog.UserId == currentUser.UserId;
-            if (!isOwner)
+            if (!isOwner && !currentUser.IsAdmin)
             {
-                if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
-                {
-                    return BaseResult<GetBlogsQueryResult>.Forbidden("You are not authorized to update this blog.");
-                }
+                return BaseResult<GetBlogsQueryResult>.Forbidden("You are not authorized to update this blog.");
             }
 
             var newUrl = CloudinaryImageRules.NormalizeOptional(request.CoverImageUrl);

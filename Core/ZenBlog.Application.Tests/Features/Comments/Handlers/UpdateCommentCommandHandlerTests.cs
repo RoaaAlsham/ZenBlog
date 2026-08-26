@@ -21,7 +21,6 @@ public class UpdateCommentCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var mapper = new Mock<IMapper>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new UpdateCommentCommand { Id = Guid.NewGuid(), Body = "Hacked body" };
         var comment = CreateComment(command.Id, "comment-owner-id");
@@ -30,11 +29,9 @@ public class UpdateCommentCommandHandlerTests
         SetupGetWithIncludes(repository, command.Id, comment);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(callerId);
-        roleChecker
-            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        currentUser.SetupGet(x => x.IsAdmin).Returns(false);
 
-        var sut = CreateSut(repository, unitOfWork, mapper, currentUser, roleChecker);
+        var sut = CreateSut(repository, unitOfWork, mapper, currentUser);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.Equal(ResultStatus.Forbidden, result.Status);
@@ -52,7 +49,6 @@ public class UpdateCommentCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var mapper = new Mock<IMapper>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var ownerId = "comment-owner-id";
         var command = new UpdateCommentCommand { Id = Guid.NewGuid(), Body = "Updated body" };
@@ -72,15 +68,13 @@ public class UpdateCommentCommandHandlerTests
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
         mapper.Setup(x => x.Map<CommentResult>(comment)).Returns(mapped);
 
-        var sut = CreateSut(repository, unitOfWork, mapper, currentUser, roleChecker);
+        var sut = CreateSut(repository, unitOfWork, mapper, currentUser);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(mapped, result.Data);
         repository.Verify(x => x.UpdateAsync(comment), Times.Once);
-        roleChecker.Verify(
-            x => x.IsInRoleAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        currentUser.VerifyGet(x => x.IsAdmin, Times.Never);
     }
 
     [Fact]
@@ -90,7 +84,6 @@ public class UpdateCommentCommandHandlerTests
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var mapper = new Mock<IMapper>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
 
         var command = new UpdateCommentCommand { Id = Guid.NewGuid(), Body = "Admin edit" };
         var comment = CreateComment(command.Id, "comment-owner-id");
@@ -105,15 +98,13 @@ public class UpdateCommentCommandHandlerTests
         SetupGetWithIncludes(repository, command.Id, comment);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(adminId);
-        roleChecker
-            .Setup(x => x.IsInRoleAsync(adminId, "Admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        currentUser.SetupGet(x => x.IsAdmin).Returns(true);
         mapper.Setup(x => x.Map(command, comment)).Returns(comment);
         repository.Setup(x => x.UpdateAsync(comment)).Returns(Task.CompletedTask);
         unitOfWork.Setup(x => x.SaveChangesAsync()).ReturnsAsync(true);
         mapper.Setup(x => x.Map<CommentResult>(comment)).Returns(mapped);
 
-        var sut = CreateSut(repository, unitOfWork, mapper, currentUser, roleChecker);
+        var sut = CreateSut(repository, unitOfWork, mapper, currentUser);
         var result = await sut.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -137,14 +128,12 @@ public class UpdateCommentCommandHandlerTests
         Mock<IRepository<Comment>> repository,
         Mock<IUnitOfWork> unitOfWork,
         Mock<IMapper> mapper,
-        Mock<ICurrentUserService> currentUser,
-        Mock<IRoleChecker> roleChecker) =>
+        Mock<ICurrentUserService> currentUser) =>
         new(
             repository.Object,
             unitOfWork.Object,
             mapper.Object,
             currentUser.Object,
-            roleChecker.Object,
             new Mock<IUserQueryService>(MockBehavior.Loose).Object,
             MonitoringMocks.ActivityLogger().Object);
 

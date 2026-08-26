@@ -14,7 +14,6 @@ public class UpdateSiteSettingsCommandHandler(
     IRepository<SiteSettings> repository,
     IUnitOfWork unitOfWork,
     ICurrentUserService currentUser,
-    IRoleChecker roleChecker,
     IUserQueryService userQuery,
     IActivityLogger activityLogger)
     : IRequestHandler<UpdateSiteSettingsCommand, BaseResult<SiteSettingsResult>>
@@ -29,7 +28,7 @@ public class UpdateSiteSettingsCommandHandler(
                 "You must be signed in to update site settings.");
         }
 
-        if (!await roleChecker.IsInRoleAsync(currentUser.UserId, "Admin", cancellationToken))
+        if (!currentUser.IsAdmin)
         {
             return BaseResult<SiteSettingsResult>.Forbidden(
                 "Only administrators can update site settings.");

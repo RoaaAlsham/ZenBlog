@@ -105,4 +105,52 @@ public class BlogEndpointsTests(ZenBlogApiFactory factory) : IClassFixture<ZenBl
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    /// <summary>
+    /// The production case: AuthDeep says tenant_admin, AspNetUserRoles says nothing.
+    ///
+    /// Every other admin test here writes a local "Admin" row first, so all of them
+    /// passed while a real tenant admin was refused with a bodyless 403 on every
+    /// non-owner delete. Authorization reads the roles the gateway asserted, and this
+    /// is the test that can tell the difference.
+    /// </summary>
+    [Fact]
+    public async Task DeleteBlog_AsTenantAdminWithoutLocalRole_ReturnsOk()
+    {
+        var owner = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory, _client, "blog-owner-authdeep-admin@example.com", "Password123!");
+        _client.UseGatewayUser(owner.Id);
+        var categoryId = await ApiTestHelpers.CreateCategoryAsync(
+            _client, _factory, "AuthDeep Admin Delete Category");
+        var blogId = await ApiTestHelpers.CreateBlogAsync(
+            _client, categoryId, "Tenant-admin deletable blog");
+
+        var admin = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory, _client, "blog-tenant-admin@example.com", "Password123!");
+        _client.UseGatewayUser(admin.Id, roles: "tenant_admin");
+
+        var response = await _client.DeleteAsync($"/api/blogs/{blogId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteBlog_AsTenantMemberNonOwner_ReturnsForbidden()
+    {
+        var owner = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory, _client, "blog-owner-authdeep-member@example.com", "Password123!");
+        _client.UseGatewayUser(owner.Id);
+        var categoryId = await ApiTestHelpers.CreateCategoryAsync(
+            _client, _factory, "AuthDeep Member Delete Category");
+        var blogId = await ApiTestHelpers.CreateBlogAsync(
+            _client, categoryId, "Not deletable by a member");
+
+        var member = await ApiTestHelpers.RegisterAndLoginAsync(
+            _factory, _client, "blog-tenant-member@example.com", "Password123!");
+        _client.UseGatewayUser(member.Id, roles: "tenant_member");
+
+        var response = await _client.DeleteAsync($"/api/blogs/{blogId}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 }

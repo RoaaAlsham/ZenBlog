@@ -18,7 +18,6 @@ public class RemoveBlogCommandHandlerTests
         var repository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
 
         var command = new RemoveBlogCommand(Guid.NewGuid());
@@ -37,9 +36,7 @@ public class RemoveBlogCommandHandlerTests
             .ReturnsAsync(blog);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns(callerId);
-        roleChecker
-            .Setup(x => x.IsInRoleAsync(callerId, "Admin", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        currentUser.SetupGet(x => x.IsAdmin).Returns(false);
 
         var userQuery = new Mock<IUserQueryService>(MockBehavior.Loose);
 
@@ -47,7 +44,6 @@ public class RemoveBlogCommandHandlerTests
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            roleChecker.Object,
             imageStorage.Object,
             userQuery.Object,
             MonitoringMocks.ActivityLogger().Object);
@@ -67,7 +63,6 @@ public class RemoveBlogCommandHandlerTests
         var repository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
 
         var ownerId = "owner-id";
@@ -96,7 +91,6 @@ public class RemoveBlogCommandHandlerTests
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            roleChecker.Object,
             imageStorage.Object,
             userQuery.Object,
             MonitoringMocks.ActivityLogger().Object);
@@ -115,7 +109,6 @@ public class RemoveBlogCommandHandlerTests
         var repository = new Mock<IRepository<Blog>>(MockBehavior.Strict);
         var unitOfWork = new Mock<IUnitOfWork>(MockBehavior.Strict);
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
-        var roleChecker = new Mock<IRoleChecker>(MockBehavior.Strict);
         var imageStorage = new Mock<IImageStorageService>(MockBehavior.Strict);
 
         var ownerId = "owner-id";
@@ -147,7 +140,6 @@ public class RemoveBlogCommandHandlerTests
             repository.Object,
             unitOfWork.Object,
             currentUser.Object,
-            roleChecker.Object,
             imageStorage.Object,
             userQuery.Object,
             MonitoringMocks.ActivityLogger().Object);

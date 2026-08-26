@@ -16,8 +16,7 @@ public class GetSecurityRequestLogsQueryHandlerTests
         var currentUser = new Mock<ICurrentUserService>(MockBehavior.Strict);
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns("user-1");
-        currentUser.SetupGet(x => x.Roles)
-            .Returns(new[] { "tenant_member" });
+        currentUser.SetupGet(x => x.IsAdmin).Returns(false);
 
         var sut = new GetSecurityRequestLogsQueryHandler(
             currentUser.Object,
@@ -49,8 +48,7 @@ public class GetSecurityRequestLogsQueryHandlerTests
 
         currentUser.SetupGet(x => x.IsAuthenticated).Returns(true);
         currentUser.SetupGet(x => x.UserId).Returns("admin-1");
-        currentUser.SetupGet(x => x.Roles)
-            .Returns(new[] { "tenant_admin", "Admin" });
+        currentUser.SetupGet(x => x.IsAdmin).Returns(true);
         repository
             .Setup(x => x.GetPagedWithIncludePathsAsync(
                 It.IsAny<System.Linq.Expressions.Expression<Func<SecurityRequestLog, bool>>>(),
